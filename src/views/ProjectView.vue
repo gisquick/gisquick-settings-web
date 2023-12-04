@@ -76,6 +76,7 @@
           <router-link class="m-2" :to="{name: 'layers'}">Layers</router-link>
           <router-link class="m-2" :to="{name: 'topics'}">Topics</router-link>
           <router-link class="m-2" :to="{name: 'access'}">Permissions</router-link>
+          <router-link class="m-2" :to="{name: 'bookmarks'}" v-if="projectHasBookmarks">Bookmarks</router-link>
           <div class="v-separator"/>
 
           <!-- <v-btn v-if="project.settings" class="small" :to="{name: 'update'}"> -->
@@ -384,7 +385,13 @@ export default {
         }
       }
       return data
-    }
+    },
+    projectHasBookmarks() {
+      return (
+        this.project.meta.bookmarks &&
+        Object.keys(this.project.meta.bookmarks).length > 0
+      )
+    },
     // layersProjectCapabilities () {
     //   console.log('# layersProjectCapabilities')
     //   return this.settings && mapValues(this.project.meta.layers, l => this.settings.layers[l.id].flags)
