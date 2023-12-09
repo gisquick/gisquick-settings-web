@@ -6,11 +6,13 @@
     <div class="f-col panel box">
       <v-list
         class="flat f-grow m-0"
+        item-key="id"
         empty-text="No Topics"
         item-text="title"
         :items="topics"
-        :selected="selectedIndex"
+        :selected="selectedTopic.id"
         @click-item="selectTopic"
+        :reorderable="true"
       />
       <hr/>
       <div class="toolbar f-row f-shrink">
@@ -77,7 +79,7 @@ export default {
   },
   data () {
     return {
-      selectedIndex: 0,
+      selectedTopic: 0,
       collapsed: []
     }
   },
@@ -90,7 +92,7 @@ export default {
       // return filterLayers(this.layers, l => !this.settings.layers[l.id].hidden)
     },
     activeTopic () {
-      return this.topics[this.selectedIndex]
+      return this.selectedTopic
     },
     topicLayersLookup () {
       return lookupTable(this.activeTopic.visible_overlays)
@@ -110,7 +112,8 @@ export default {
     },
     removeSelectedTopic () {
       // if (this.selectedIndex >= 0) {
-      this.topics.splice(this.selectedIndex, 1)
+      const selectedIndex = this.topics.find(topic => topic === this.selectedTopic)
+      this.topics.splice(selectedIndex, 1)
     },
     toggleLayer (layer, group) {
       if (this.topicLayersLookup[layer.id]) {
@@ -124,7 +127,7 @@ export default {
       }
     },
     selectTopic (item, index) {
-      this.selectedIndex = index
+      this.selectedTopic = item
     }
   }
 }

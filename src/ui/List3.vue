@@ -29,37 +29,38 @@
     <slot name="prepend"/>
     <div
       v-if="items && items.length"
-      key="items"
+      key="element"
+      ref="element"
       tabindex="-1"
       role="listbox"
       class="list-items"
       :style="colorVars"
       @mouseout="highlightIndex = -1"
     >
-      <template v-for="(item, index) in renderItems">
-        <div
-          :key="index"
-          ref="item"
-          class="item"
-          role="option"
-          :class="{
-            selected: selectedItem === item,
-            highlighted: highlightIndex === index
-          }"
-          @click="onItemClick(item, index)"
-          @mouseover="highlightIndex = index"
+      <div
+        v-for="(item, index) in renderItems"
+        :key="item[itemKey]"
+        ref="item"
+        class="item"
+        role="option"
+        :class="{
+          selected: selectedItem === item,
+          highlighted: highlightIndex === index
+        }"
+        @click="onItemClick(item, index)"
+        @mouseover="highlightIndex = index"
+      >
+        <slot v-if="item === appendItem" name="append-item"/>
+        <slot
+          v-else
+          name="item"
+          :item="item"
+          :selected="selectedItem === item"
+          :index="index"
         >
-          <slot v-if="item === appendItem" name="append-item"/>
-          <slot
-            v-else
-            name="item"
-            :item="item"
-            :index="index"
-          >
-            <span v-text="item[itemText]"/>
-          </slot>
-        </div>
-      </template>
+          <span v-text="item[itemText]"/>
+        </slot>
+      </div>
     </div>
     <slot v-else name="empty">
       <div v-if="emptyText" class="empty" v-text="emptyText"/>
@@ -75,6 +76,8 @@ import { colorVars } from './utils/colors'
 import InputField from './InputField.vue'
 import DocumentListener from './DocumentListener'
 import Focusable from './mixins/Focusable'
+import { useSortable } from '@vueuse/integrations/useSortable'
+import { ref } from 'vue'
 
 export default {
   components: { DocumentListener, InputField },
@@ -86,12 +89,21 @@ export default {
       default: 'primary'
     },
     disabled: Boolean,
+    reorderable: Boolean,
     items: Array,
     itemKey: String,
     itemText: String,
     label: String,
     selected: {},
     emptyText: String
+  },
+  setup(props) {
+    const element = ref()
+    useSortable(element, props.items, {
+      disabled: !props.reorderable,
+    })
+
+    return { element }
   },
   data () {
     return {
@@ -113,7 +125,7 @@ export default {
         return this.renderItems?.find(i => i[this.itemKey] === this.selected)
       }
       return Number.isInteger(this.selected) ? this.renderItems[this.selected] : null
-    }
+    },
   },
   methods: {
     highlight (index) {
@@ -209,5 +221,9 @@ export default {
       padding: 6px 0;
     }
   }
+}
+
+.sortable-ghost {
+  opacity: 0.4;
 }
 </style>
