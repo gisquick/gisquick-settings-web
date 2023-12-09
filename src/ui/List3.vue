@@ -157,6 +157,8 @@ export default {
   // border: 1px solid var(--border-color);
 
   outline: none;
+
+  --select-color: rgba(17, 17, 17, 0.05);
   .list-items {
     outline: none;
     flex-grow: 1;
@@ -185,6 +187,7 @@ export default {
     &.selected {
       color: var(--color);
       --icon-color: var(--color);
+      background-color: var(--select-color);
       // font-weight: 500;
     }
     &.highlighted {
