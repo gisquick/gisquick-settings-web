@@ -77,6 +77,7 @@
           <router-link class="m-2" :to="{name: 'topics'}">Topics</router-link>
           <router-link class="m-2" :to="{name: 'search'}">Search</router-link>
           <router-link class="m-2" :to="{name: 'access'}">Permissions</router-link>
+          <router-link class="m-2" :to="{name: 'settings'}">Settings</router-link>
           <div class="v-separator"/>
 
           <!-- <v-btn v-if="project.settings" class="small" :to="{name: 'update'}"> -->

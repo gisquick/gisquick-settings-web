@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => ({
       open: '/user/'
     }),
     svgSprite({
-      user: ['./icons/user'],
+      user: ['./icons/user', './icons/text-editor'],
       admin: ['./icons/admin']
     }),
     svgLoader(),
