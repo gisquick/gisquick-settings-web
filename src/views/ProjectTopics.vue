@@ -1,8 +1,5 @@
 <template>
-  <topics-editor
-    :layers="overlays"
-    :settings="settings"
-  />
+  <topics-editor :layers="overlays"/>
 </template>
 
 <script>
@@ -11,14 +8,11 @@ import { filterLayers, transformLayersTree } from '@/utils/layers'
 
 export default {
   components: { TopicsEditor },
-  props: {
-    project: Object,
-    settings: Object
-  },
+  inject: ['project', 'settings'],
   computed: {
     overlays () {
       const meta = this.project.meta
-      let tree = meta.layers_tree.filter(i => !this.settings.base_layers.includes(i.id || i.name))
+      let tree = meta.layers_tree
       tree = filterLayers(tree, l => !this.settings.layers[l.id]?.flags?.includes('excluded'))
       return transformLayersTree(
         tree,

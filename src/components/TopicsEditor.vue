@@ -53,7 +53,7 @@
             <!-- :disabled="settings.layers[item.id].hidden" -->
             <v-checkbox
               :label="item.title"
-              :value="topicLayersLookup[item.id]"
+              :value="topicLayersLookup[item.id] || activeBaseLayer === item.id"
               @input="toggleLayer(item, group)"
             />
           </template>
@@ -67,15 +67,17 @@
 <script>
 import LayersTable from '@/components/LayersTable.vue'
 import { lookupTable } from '@/utils'
+import { layersList } from '@/utils/layers'
 // import { filterLayers } from '@/utils/layers'
+import Vue from 'vue'
 
 export default {
   name: 'TopicsEditor',
   components: { LayersTable },
+  inject: ['settings', 'project'],
   props: {
     // topics: Array,
     layers: Array,
-    settings: Object
   },
   data () {
     return {
@@ -87,12 +89,18 @@ export default {
     topics () {
       return this.settings.topics
     },
+    backgroundLayers () {
+      return this.settings
+    },
     availableLayers () {
       return this.layers
       // return filterLayers(this.layers, l => !this.settings.layers[l.id].hidden)
     },
     activeTopic () {
       return this.topics[this.selectedIndex]
+    },
+    activeBaseLayer () {
+      return this.activeTopic.base_layer
     },
     topicLayersLookup () {
       return lookupTable(this.activeTopic.visible_overlays)
@@ -107,7 +115,8 @@ export default {
         id,
         title: 'New',
         abstract: '',
-        visible_overlays: []
+        visible_overlays: [],
+        base_layer: null,
       })
     },
     removeSelectedTopic () {
@@ -115,14 +124,24 @@ export default {
       this.topics.splice(this.selectedIndex, 1)
     },
     toggleLayer (layer, group) {
-      if (this.topicLayersLookup[layer.id]) {
-        this.activeTopic.visible_overlays = this.activeTopic.visible_overlays.filter(id => id != layer.id)
+      const isBaseLayer = (layerId) => {
+        const tree = this.project.meta.layers_tree.filter(i => this.settings.base_layers.includes(i.id || i.name))
+        return layersList(tree).some(l => l.id === layerId)
+      }
+
+      if (isBaseLayer(layer.id)) {
+        // this.activeTopic.base_layer = this.activeTopic.base_layer === layer.id ? null : layer.id
+        Vue.set(this.activeTopic, 'base_layer', this.activeTopic.base_layer === layer.id ? null : layer.id)
       } else {
-        if (group?.mutually_exclusive) {
-          const exclude = group.layers.filter(l => this.topicLayersLookup[l.id] && l !== layer).map(l => l.id)
-          this.activeTopic.visible_overlays = this.activeTopic.visible_overlays.filter(id => !exclude.includes(id))
+        if (this.topicLayersLookup[layer.id]) {
+          this.activeTopic.visible_overlays = this.activeTopic.visible_overlays.filter(id => id != layer.id)
+        } else {
+          if (group?.mutually_exclusive) {
+            const exclude = group.layers.filter(l => this.topicLayersLookup[l.id] && l !== layer).map(l => l.id)
+            this.activeTopic.visible_overlays = this.activeTopic.visible_overlays.filter(id => !exclude.includes(id))
+          }
+          this.activeTopic.visible_overlays.push(layer.id)
         }
-        this.activeTopic.visible_overlays.push(layer.id)
       }
     },
     selectTopic (item, index) {
