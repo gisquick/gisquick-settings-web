@@ -118,10 +118,40 @@
         <span>Project contains errors</span>
       </div>
 
-      <div v-if="tasks.clientFiles.success && !dirtyFiles" class="submit-form f-row-ac f-justify-center py-2">
-        <!-- <span>{{ user.username }} /</span> -->
-        <!-- <v-text-field class="filled" readonly disabled :value="user.username + '/'"/>
-        <v-text-field class="filled" placeholder="name" v-model="name"/> -->
+      <div v-if="tasks.clientFiles.success && !dirtyFiles" class="submit-form f-row-ac py-2">
+        <v-btn
+          v-if="!useTemplate"
+          color="#777"
+          class="outlined n-case"
+          :loading="tasks.fetchProjects.pending"
+          @click="enableTemplate"
+        >
+          Use Template
+        </v-btn>
+        <v-autocomplete
+          label="Template"
+          placeholder="Select project"
+          class="filled inline"
+          v-if="tasks.fetchProjects.success"
+          :items="tasks.fetchProjects.data"
+          item-value="name"
+          filter-fields="name,title"
+          highlight-fields="name,title"
+          v-model="templateProject"
+        >
+          <template v-slot:item="{ item, html }">
+            <div class="ac-item f-row f-grow">
+              <div class="f-grow">
+                <div class="title" v-html="html.name"/>
+                <div class="f-row">
+                  <small v-html="html.title" class="f-grow mr-2"/>
+                  <small>{{ item.projection }}</small>
+                </div>
+              </div>
+            </div>
+          </template>
+        </v-autocomplete>
+        <div class="f-grow"/>
         <v-text-field
           class="filled inline"
           label="Project Name"
@@ -175,6 +205,7 @@
 </template>
 
 <script>
+import VAutocomplete from '@/ui/Autocomplete.vue'
 import ErrorMessage from '@/components/ErrorMessage.vue'
 import LayersErrors, { layersErrors } from '@/components/LayersErrors.vue'
 import QgisInfo from '@/components/QgisInfo.vue'
@@ -209,20 +240,23 @@ const SourceIcons = {
 
 export default {
   name: 'PublishView',
-  components: { ErrorMessage, LayersErrors, FilesTree, QgisInfo, QgisLayersInfo, PluginDisconnected, JsonViewer },
+  components: { VAutocomplete, ErrorMessage, LayersErrors, FilesTree, QgisInfo, QgisLayersInfo, PluginDisconnected, JsonViewer },
   data () {
     return {
       name: '',
+      templateProject: null,
       pluginError: null,
       projectInfo: null,
       opened: [],
+      useTemplate: false,
       tasks: {
         clientFiles: TaskState(),
-        createProject: TaskState()
+        createProject: TaskState(),
+        fetchProjects: TaskState()
       },
       uploadProgress: null
       // test data for styling
-      // uploadProgress: { files: {'ku.gpkg': {progress: 33}} }
+      // uploadProgress: { files: {'filename': {progress: 33}} }
     }
   },
   computed: {
@@ -376,7 +410,13 @@ export default {
           settings: null,
           thumbnail: false
         }
-        this.$router.push({ name: 'project', params: { user: this.user.username, name: this.name, project } })
+        const params = {
+          user: this.user.username,
+          name: this.name,
+          publishedProject: project,
+          template: this.templateProject
+        }
+        this.$router.push({ name: 'project', params })
       } catch (e) {
         if (e !== 'aborted') {
           this.$notify.error(e.message ?? 'Error')
@@ -384,6 +424,13 @@ export default {
       } finally {
         // this.fetchServerFiles()
         this.uploadProgress = null
+      }
+    },
+    async enableTemplate () {
+      const t = this.$http.get('/api/projects/')
+      await watchTask(t, this.tasks.fetchProjects)
+      if (this.tasks.fetchProjects.success) {
+        this.useTemplate = true
       }
     }
   }
@@ -476,5 +523,13 @@ export default {
 .short-names-editor {
   width: clamp(400px, 600px, 90vw);
   overflow: auto;
+}
+</style>
+<style lang="scss">
+.ac-item {
+  small {
+    font-size: 12px;
+    opacity: 0.7;
+  }
 }
 </style>

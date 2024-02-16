@@ -64,7 +64,11 @@
       text="Are you sure to delete this project?"
     />
     <v-dialog ref="projectionDialog" title="Projection">
-      <projections-settings :meta="project.meta" :settings="settings"/>
+      <projections-settings
+        v-if="project"
+        :meta="project.meta"
+        :settings="settings"
+      />
     </v-dialog>
     <div v-if="project && settings" class="project-page f-col light">
       <portal to="menu">
@@ -102,7 +106,6 @@
             @click="saveSettings"
           >
             <v-icon name="save" class="mr-2"/>
-            <!-- <span v-if="refSettings">Save</span> -->
             <span v-if="project.settings">Save</span>
             <span v-else>Publish</span>
           </v-btn>
@@ -219,6 +222,7 @@
 import mapValues from 'lodash/mapValues'
 import cloneDeep from 'lodash/cloneDeep'
 import isEqual from 'lodash/isEqual'
+import pickBy from 'lodash/pickBy'
 import combineURLs from 'axios/lib/helpers/combineURLs'
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -227,6 +231,7 @@ import JsonViewer from '@/components/JsonViewer.vue'
 // import JsonViewer2 from '@/components/JsonViewer2.vue'
 import JsonViewer2 from '@/components/JsonDiffViewer.vue'
 import ProjectionsSettings from '@/components/ProjectionsSettings.vue'
+import { initLayersPermissions } from '@/views/ProjectAccess.vue'
 import { scalesToResolutions, ProjectionsScales } from '@/utils/scales'
 import { TaskState, watchTask } from '@/tasks'
 import { objectDiff } from '@/utils/diff'
@@ -243,10 +248,29 @@ function validatedSettings (settings, meta) {
   //     s.add(mediaFolder)
   //   })
   // })
-
+  const layersAttrsNames = mapValues(meta.layers, l => l.attributes?.map(a => a.name))
   settings.auth.roles?.forEach(role => {
+    // remove obsole layers/attributes permissions
+    Object.keys(role.permissions.layers)
+      .filter(lid => !meta.layers[lid])
+      .forEach(lid => {
+        delete role.permissions.layers[lid]
+        delete role.permissions.attributes[lid]
+      })
+    // initialize missing layers/attributes permissions
+    const newLayers = pickBy(meta.layers, (_, lid) => !role.permissions.layers[lid])
+    const newPerms = initLayersPermissions(newLayers)
+    Object.keys(newLayers).forEach(lid => {
+      role.permissions.layers[lid] = newPerms.layers[lid]
+      if (newPerms.attributes[lid]) {
+        role.permissions.attributes[lid] = newPerms.attributes[lid]
+      }
+    })
     const attrsPerms = role.permissions.attributes
     Object.entries(attrsPerms).forEach(([layerId, perms]) => {
+      layersAttrsNames[layerId]?.filter(name => !perms[name]).forEach(name => {
+        perms[name] = ['view']
+      })
       if (!perms.geometry) {
         const layerPerms = role.permissions.layers[layerId]
         const layerEditable = layerPerms.includes('query') && hasAny(layerPerms, 'update', 'insert', 'delete')
@@ -255,6 +279,7 @@ function validatedSettings (settings, meta) {
     })
   })
 
+  settings.layers = pickBy(settings.layers, (_, lid) => meta.layers[lid])
   Object.entries(settings.layers).filter(([_, lset]) => lset.export_fields).forEach(([lid, lset]) => {
     const attrs = meta.layers[lid]?.attributes?.map(a => a.name)
     pull(lset.export_fields, ...lset.export_fields.filter(name => !attrs.includes(name)))
@@ -297,7 +322,9 @@ export default {
   props: {
     user: String,
     name: String,
-    publishedProject: Object // when redirected from Publish View
+    // props when redirected from Publish View
+    publishedProject: Object, // mismatch with PublishView!
+    template: String
   },
   data () {
     return {
@@ -321,7 +348,8 @@ export default {
       return `${this.user}/${this.name}`
     },
     projectData () {
-      return this.publishedProject || this.fetchTask.data
+      return this.fetchTask.data
+      // return this.publishedProject || this.fetchTask.data
     },
     statusColorMap () {
       return {
@@ -386,38 +414,34 @@ export default {
       }
       return data
     }
-    // layersProjectCapabilities () {
-    //   console.log('# layersProjectCapabilities')
-    //   return this.settings && mapValues(this.project.meta.layers, l => this.settings.layers[l.id].flags)
-    // },
   },
-  // watch: {
-  //   projectName: {
-  //     immediate: true,
-  //     handler: 'fetchProjectInfo'
-  //   }
-  // },
-  watch: {
-    projectData: {
-      immediate: true,
-      handler (data) {
-        this.project = {
-          ...data,
-          files: this.createFilesTask()
-        }
-      }
-    }
-  },
-  created () {
+  async created () {
     if (this.publishedProject) {
-      this.settings = this.newSettings(this.publishedProject.meta)
+      if (this.template) {
+        try {
+          const { data } = await this.$http.get(`/api/project/full-info/${this.template}`)
+          const settings = this.newSettingsFromTemplate(this.publishedProject.meta, data.settings)
+          settings.template = this.template
+          this.settings = settings
+        } catch (err) {
+          console.error(err)
+          this.$notify.error('Failed to import project settings')
+          this.settings = this.newSettings(this.publishedProject.meta)
+        }
+      } else {
+        this.settings = this.newSettings(this.publishedProject.meta)
+      }
+      this.project = {
+        ...this.publishedProject,
+        files: this.createFilesTask()
+      }
     } else {
-      this.fetchProjectInfo()
+      this.loadProject()
     }
   },
   provide () {
     return {
-      fetchProjectInfo: this.fetchProjectInfo
+      fetchProjectInfo: this.loadProject
     }
   },
   methods: {
@@ -433,6 +457,15 @@ export default {
       }
       return state
     },
+    newSettingsFromTemplate (meta, baseSettings) {
+      // Check map projection?
+      let settings = cloneDeep(baseSettings)
+      settings.title = meta.title
+      settings.extent = meta.extent
+      const baseLayers = settings.base_layers || meta.base_layers
+      settings.base_layers = baseLayers?.filter(id => meta.layers_tree.some(item => item.id === id)) ?? []
+      return validatedSettings(settings, meta)
+    },
     newSettings (meta) {
       const layers = mapValues(meta.layers, (l) => ({
         // flags: [l.queryable ? 'query' : null].filter(f => !!f),
@@ -446,6 +479,7 @@ export default {
           roles: null,
           users: null
         },
+        settings_auth: { users: null },
         base_layers: meta.base_layers?.filter(id => meta.layers_tree.some(item => item.id === id)) ?? [],
         extent: meta.extent,
         layers,
@@ -466,7 +500,7 @@ export default {
       }
       return settings
     },
-    async fetchProjectInfo () {
+    async loadProject () {
       const task = this.$http.get(`/api/project/full-info/${this.projectName}`)
       // watchTask(task, this.fetchTask).then(({ data }) => {
       //     this.fetchedProject = data
@@ -477,14 +511,14 @@ export default {
       const { data } = await watchTask(task, this.fetchTask)
       if (this.fetchTask.success) {
         const { meta, settings } = data
-        // this.settings = settings ? cloneDeep(validatedSettings(settings, meta)) : this.newSettings(meta)
-        // this.refSettings = cloneDeep(this.settings)
         if (settings) {
-          this.refSettings = settings
           this.settings = validatedSettings(cloneDeep(settings), meta)
         } else {
-          this.refSettings = this.newSettings(meta)
-          this.settings = cloneDeep(this.refSettings)
+          this.settings = cloneDeep(this.newSettings(meta))
+        }
+        this.project = {
+          ...data,
+          files: this.createFilesTask()
         }
       }
     },
@@ -497,10 +531,9 @@ export default {
         return
       }
       this.$notify.success('Project settings was updated')
-      this.fetchProjectInfo()
+      this.loadProject()
     },
     resetSettings () {
-      // this.settings = this.newSettings(this.qgisMeta)
       this.settings = this.newSettings(this.project.meta)
     },
     async deleteProject () {
