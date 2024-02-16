@@ -1,115 +1,110 @@
 <template>
-  <div class="autocomplete">
-    <v-text-field
-      ref="textField"
-      autocomplete="off"
-      role="combobox"
-      v-bind="$attrs"
-      :class="[{open: showPopup}, fieldClass]"
-      :color="color"
-      :disabled="disabled"
-      aria-haspopup="true"
-      :aria-disabled="disabled"
-      :aria-expanded="showPopup ? 'true' : 'false'"
-      :value="text"
-      v-on="proxyListeners"
-      @click="openPopup"
-      @blur="onTextfieldBlur"
-      @input="updateText"
-    >
-      <template v-slot:prepend>
-        <slot name="prepend">
-          <v-icon name="search" class="mx-2" color="#aaa"/>
-        </slot>
-      </template>
-      <template v-slot:append>
-        <slot name="append"/>
-        <div
-          v-if="!!text"
-          class="clear f-row-ac"
-          role="button"
-          aria-label="Clear"
-          @click="clear"
-        >
-          <v-icon name="clear" class="m-2" color="#777"/>
-        </div>
-        <popup-content
-          backhandler
-          :align="align"
-          :transition="transition"
-          :open="showPopup"
-          :bounds="bounds"
-          :popup-class="contentClass"
-          :popup-style="popupStyle"
-          @update:open="open = $event"
-          @click:out="popupClick"
-          @click:in="closePopup"
-          @keydown.esc="closePopup"
-          @keydown.tab.prevent="closePopup"
-          @keydown.up.prevent="highlight(highlightIndex - 1)"
-          @keydown.down.prevent="highlight(highlightIndex + 1)"
-          @keydown.home.prevent="highlight(0)"
-          @keydown.end.prevent="highlight(displayedItems.length)"
-          @keydown.enter="onEnter"
-          @closed="onClosed"
-        >
-          <div
-            v-if="items && items.length > 0"
-            tabindex="-1"
-            role="listbox"
-            class="popup-content popup-list"
-            :style="colorVars"
-          >
-            <template v-for="(item, index) in renderItems">
-              <div
-                :key="index"
-                ref="item"
-                tabindex="0"
-                class="item"
-                role="option"
-                :class="{
-                  highlighted: highlightIndex === index
-                }"
-                @click="selectItem(item)"
-                @mouseover="highlightIndex = index"
-              >
-                <slot v-if="item === appendItem" name="append-item"/>
-                <slot
-                  v-else
-                  name="item"
-                  :item="item"
-                  :index="index"
-                  :html="highlights[index] || {}"
-                >
-                  <span v-if="highlights[index]" v-html="highlights[index][itemText]"/>
-                </slot>
-              </div>
-            </template>
-          </div>
-        </popup-content>
-      </template>
-    </v-text-field>
-    <div v-if="multi && value" class="chips" :style="colorVars">
-      <div
-        v-for="(item, i) in value"
-        :key="i"
-        class="item f-row-ac p-2 dark"
-      >
-        <span class="mr-2">{{ item[itemText] }}</span>
-        <v-icon name="close-circle" size="16" @click="removeItem(item)"/>
-      </div>
+  <input-field
+    class="autocomplete"
+    :class="{focused}"
+    :error="error"
+    :label="label"
+    :color="color"
+    :disabled="disabled"
+    aria-haspopup="true"
+    :aria-disabled="disabled"
+    :aria-expanded="showPopup ? 'true' : 'false'"
+    role="combobox"
+  >
+    <div class="input f-row-ac" tabindex="-1" @click="focusInput">
+      <v-icon v-if="icon" :name="icon" class="mx-2" color="grey"/>
+      <span
+        v-if="value && !hideValue"
+        class="f-grow"
+        v-text="itemText ? value[itemText] : value"
+        @click="onValueClick"
+      />
+      <input
+        v-show="!value || hideValue"
+        ref="input"
+        :placeholder="placeholder"
+        autocomplete="off"
+        :value="text"
+        v-on="proxyListeners"
+        @click="openPopup"
+        @input="updateText"
+      />
+      <v-spinner v-if="loading" class="ml-2" size="16" width="2"/>
+      <v-btn v-else-if="text || value" tabindex="-1" class="icon flat ml-2" @click.stop="clear">
+        <v-icon name="x" size="16"/>
+      </v-btn>
+      <slot name="append"/>
     </div>
-  </div>
+    <template v-slot:error="scope">
+      <slot name="error" v-bind="scope"/>
+    </template>
+    <popup-content
+      backhandler
+      :align="align"
+      :transition="transition"
+      :open="showPopup"
+      :bounds="bounds"
+      :popup-class="contentClass"
+      :popup-style="popupStyle"
+      @update:open="open = $event"
+      @click:out="popupClick"
+      @click:in="closePopup"
+      @keydown.esc="closePopup"
+      @keydown.tab.prevent="closePopup"
+      @keydown.up.prevent="highlight(highlightIndex - 1)"
+      @keydown.down.prevent="highlight(highlightIndex + 1)"
+      @keydown.home.prevent="highlight(0)"
+      @keydown.end.prevent="highlight(displayedItems.length)"
+      @keydown.enter="onEnter"
+      tabindex="-1"
+    >
+      <div
+        v-if="items && items.length > 0"
+        ref="popup"
+        tabindex="-1"
+        role="listbox"
+        class="popup-content popup-list"
+        :style="colorVars"
+      >
+        <template v-for="(item, index) in renderItems">
+          <div
+            :key="index"
+            ref="item"
+            tabindex="0"
+            class="item"
+            role="option"
+            :class="{
+              highlighted: highlightIndex === index
+            }"
+            @click="selectItem(item)"
+            @mouseover="highlightIndex = index"
+          >
+            <slot v-if="item === appendItem" name="append-item"/>
+            <slot
+              v-else
+              name="item"
+              :item="item"
+              :index="index"
+              :html="highlights[index] || {}"
+            >
+              <span v-if="highlights[index]" v-html="highlights[index][itemText]"/>
+            </slot>
+          </div>
+        </template>
+      </div>
+    </popup-content>
+  </input-field>
 </template>
 
 <script>
 import clamp from 'lodash/clamp'
 import pick from 'lodash/pick'
 import PopupContent from './PopupContent.vue'
-import VIcon from './Icon.vue'
-import VTextField from './TextField.vue'
+import InputField from './InputField.vue'
 import { elementBounds } from './utils/popup'
 import { colorVars } from './utils/colors'
+import Focusable from './mixins/Focusable'
+
 
 import { sanitize, escapeRegExp, removeDiacritics } from './utils/text'
 
@@ -134,25 +129,28 @@ export function highlight (text, query) {
 }
 
 export default {
-  components: { PopupContent, VIcon, VTextField },
-  inheritAttrs: false,
+  components: { PopupContent, InputField },
+  mixins: [Focusable],
   props: {
     align: String,
     color: {
       type: String,
       default: 'primary'
     },
-    fieldClass: [String, Object, Array],
+    error: String,
+    label: String,
     value: {},
     disabled: Boolean,
     transition: {
       type: [String, Object],
       default: 'slide-y'
     },
+    placeholder: String,
+    icon: String,
     items: Array,
     itemText: {
       type: String,
-      default: 'text'
+      default: ''
     },
     /**
      * Comma separated list of fields
@@ -163,18 +161,21 @@ export default {
       type: Number,
       default: 0
     },
+    filterFields: String,
     multi: Boolean,
     contentClass: {
       type: String,
       default: 'popup-autocomplete'
     },
-    uniformWidth: Boolean
+    uniformWidth: Boolean,
+    loading: Boolean
   },
   data () {
     return {
       text: '',
       open: false,
-      highlightIndex: -1
+      highlightIndex: -1,
+      hideValue: false
     }
   },
   computed: {
@@ -185,7 +186,7 @@ export default {
       return colorVars(this.color)
     },
     showPopup () {
-      return !!(this.open && this.text.length >= this.minChars && this.items && this.items.length)
+      return !!(this.open && this.text.length >= this.minChars && this.items?.length)
     },
     bounds () {
       return this.showPopup ? elementBounds(this.$el) : null
@@ -206,15 +207,11 @@ export default {
       return this.text && new RegExp(escapeRegExp(sanitize(removeDiacritics(this.text))), 'i')
     },
     displayedItems () {
-      return this.items
-      /*
-      if (!this.text) {
-        return this.items
+      if (this.filterFields && this.text) {
+        const fields = this.filterFields.split(',')
+        return this.items.filter(i => fields.some(f => i[f]?.match(this.regex)))
       }
-      // filter only matched items (with highlight)
-      // return this.items.filter(i => i[this.itemText].match(this.regex))
-      return this.items.filter(i => this.regex.test(removeDiacritics(i[this.itemText])))
-      */
+      return this.items
     },
     renderItems () {
       return this.appendItem ? this.displayedItems.concat(this.appendItem) : this.displayedItems
@@ -234,18 +231,16 @@ export default {
     }
   },
   watch: {
-    value: {
-      immediate: true,
-      handler (v) {
-        if (!v) {
-          this.text = ''
-        } else if (!this.multi) {
-          this.text = v?.[this.itemText] || ''
-        }
-      }
+    focused (v) {
+      this.$emit(v ? 'focus' : 'blur', this)
     }
   },
   methods: {
+    focus () {
+      if (!this.disabled) {
+        this.$refs.input?.focus()
+      }
+    },
     cleanup () {
       if (!this.text && !this.multi && this.value) {
         this.$emit('input', null)
@@ -254,23 +249,19 @@ export default {
         this.text = this.value?.[this.itemText] || ''
       }
     },
-    onTextfieldBlur (e) {
-      console.log('onTextfieldBlur')
-      return
-      if (!this.showPopup || !this.value) {
-        this.cleanup()
-        this.$emit('blur', e)
-      }
-    },
     onInput (item) {
+      this.hideValue = false
       let value = this.itemValue ? item[this.itemValue] : item
       if (this.multi) {
         value = Array.isArray(this.value) ? [...this.value, value] : [value]
       }
-      this.$emit('input', value)
+      this.$emit('input', value, this)
+    },
+    onValueClick () {
+      this.hideValue = true
+      this.openPopup()
     },
     selectItem (item) {
-      console.log('selectItem')
       if (item === this.appendItem) {
         this.$emit('append-item:click')
       } else {
@@ -279,9 +270,11 @@ export default {
       if (this.multi) {
         this.text = ''
       }
-      this.focusComponent()
+      // this.text = ''
+      this.focusInput()
     },
-    updateText (text) {
+    updateText (e) {
+      const text = e.target.value
       this.text = text
       this.open = true
       this.$emit('text:update', this.text)
@@ -291,20 +284,19 @@ export default {
       // this.$refs.textField.focus()
     },
     closePopup () {
-      console.log('closePopup')
       this.open = false
+      this.hideValue = false
       this.$emit('close')
     },
     popupClick (e) {
-      console.log('popupClick')
       if (!this.$el.contains(e.target)) {
         this.closePopup()
       }
     },
-    focusComponent () {
+    focusInput () {
       if (!this.disabled) {
         // this.$el.querySelector('[tabindex]').focus()
-        this.$refs.textField.focus()
+        this.$refs.input?.focus()
       }
     },
     highlight (index) {
@@ -322,7 +314,7 @@ export default {
     },
     clear () {
       this.text = ''
-      if (!this.multi) {
+      if (!this.multi && this.value) {
         this.$emit('input', null)
       }
       this.$emit('clear')
@@ -330,14 +322,6 @@ export default {
     removeItem (item) {
       const value = this.value.filter(i => i !== item)
       this.$emit('input', value)
-    },
-    onClosed () {
-      this.highlightIndex = -1
-      if (!this.$refs.textField?.focused) {
-        this.cleanup()
-        this.$emit('blur')
-      }
-      this.$emit('closed')
     }
   }
 }
@@ -345,28 +329,17 @@ export default {
 
 <style lang="scss" scoped>
 .autocomplete {
-  margin: 6px;
-  display: flex;
-  flex-direction: column;
-  .text-field {
-    margin: 0;
-    .clear {
-      cursor: pointer;
-    }
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    font-size: 14px;
-    margin: 3px 0;
-    .item {
-      background-color: var(--color);
-      border-radius: 6px;
-      .icon {
-        cursor: pointer;
-      }
-      margin: 3px 6px 3px 0;
-    }
+  margin: var(--gutter);
+  input {
+    outline: none;
+    border: none;
+    background-color: transparent;
+    font-size: inherit;
+    color: inherit;
+    text-align: inherit;
+    font-family: inherit;
+    flex-grow: 1;
+    font-size: 15px;
   }
 }
 .popup-list {

@@ -75,7 +75,7 @@
 <script>
 import { extname } from 'path'
 import TabsHeader from '@/ui/TextTabsHeader.vue'
-import VAutocomplete from '@/ui/Autocomplete2.vue'
+import VAutocomplete from '@/ui/Autocomplete.vue'
 import UsersList from '@/components/UsersList.vue'
 import { TaskState, watchTask } from '@/tasks'
 

@@ -7,7 +7,7 @@
     :error="hasDeletedUsers ? 'Contains inactive or deleted users' : null"
   >
     <div class="input">
-      <v-autocomplete2
+      <v-autocomplete
         placeholder="Find user"
         class="filled"
         :min-chars="2"
@@ -50,7 +50,7 @@
           </v-menu>
         </template> -->
 
-      </v-autocomplete2>
+      </v-autocomplete>
       <hr/>
 
       <!-- <div class="list m-2">
@@ -109,7 +109,6 @@
 import keyBy from 'lodash/keyBy'
 import InputField from '@/ui/InputField.vue'
 import VAutocomplete from '@/ui/Autocomplete.vue'
-import VAutocomplete2 from '@/ui/Autocomplete2.vue'
 // import VList from '@/ui/ActionList.vue'
 import Focusable from '@/ui/mixins/Focusable'
 
@@ -117,7 +116,7 @@ import { sanitize, escapeRegExp, removeDiacritics } from '@/ui/utils/text'
 
 
 export default {
-  components: { InputField, VAutocomplete, VAutocomplete2 },
+  components: { InputField, VAutocomplete },
   mixins: [ Focusable ],
   props: {
     label: {
@@ -153,7 +152,7 @@ export default {
       return []
     },
     hasDeletedUsers () {
-      return this.task.success && this.value.some(username => !this.usersMap[username])
+      return this.task.success && this.value?.some(username => !this.usersMap[username])
     }
   },
   methods: {
@@ -161,12 +160,13 @@ export default {
       this.text = text
       // this.filterUsers(text)
     },
-    onInput (user) {
+    onInput (user, field) {
       if (this.value && this.value.some(u => u.username === user.username)) {
         return
       }
       this.$emit('input', Array.isArray(this.value) ? [...this.value, user.username] : [user.username])
       this.text = ''
+      field.clear()
     },
     removeUser (username) {
       const value = this.value.filter(u => u !== username)

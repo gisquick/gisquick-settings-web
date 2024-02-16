@@ -75,6 +75,9 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.input {
+  height: 32px;
+}
 .i-field {
   display: grid;
   // grid-template-rows: auto 1fr auto; // gap doesn't work nice when optional elements are not rendered
@@ -84,7 +87,6 @@ export default {
   // transition: all .4s cubic-bezier(.25,.8,.25,1);
 
   .input {
-    height: 32px;
     position: relative;
     transition: all .4s cubic-bezier(.25,.8,.25,1);
     &[disabled] {
