@@ -1,9 +1,11 @@
 <template>
   <div v-if="authSettingsValid" class="page-content f-col f-grow light">
+    <tabs-header v-if="projectSuperuserAccess" class="main mb-4" :items="tabs" v-model="tab"/>
+    <template v-if="tab === 'map'">
     <div class="l-col2">
       <v-select
         class="filled"
-        label="Project Access"
+        label="Map Access"
         :items="accessOptions"
         :value="settings.auth.type"
         @input="setAuthType"
@@ -303,6 +305,17 @@
         </v-list>
       </div>
     </div>
+    </template>
+    <template v-else>
+      <div class="l-col2">
+        <users-list
+          label="Admin Users"
+          :task="tasks.users"
+          v-model="settings.settings_auth.admin_users"
+        />
+      </div>
+    </template>
+
   </div>
   <div v-else class="m-4 f-col-ac">
     <div class="error f-row-ac my-4">
@@ -328,6 +341,7 @@ import AttributesPermissionsFlags from '@/components/AttributesPermissionsFlags.
 import LayerPermissionsFlags from '@/components/LayerPermissionsFlags.vue'
 import GeometryPermissionsFlags from '@/components/GeometryPermissionsFlags.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import TabsHeader from '@/ui/TabsHeader.vue'
 
 import { extend, pull, hasAny } from '@/utils/collections'
 import { transformLayersTree, layersList } from '@/utils/layers'
@@ -360,7 +374,7 @@ export function initLayersPermissions (layers) {
 export default {
   name: 'ProjectAccess',
   components: {
-    ConfirmDialog, UsersList, LayersTable, TextTabsHeader, RadioGroup,
+    ConfirmDialog, UsersList, LayersTable, TextTabsHeader, RadioGroup, TabsHeader,
     AttributePermissionsFlags, AttributesPermissionsFlags, LayerPermissionsFlags, GeometryPermissionsFlags
   },
   props: {
@@ -369,6 +383,7 @@ export default {
   },
   data () {
     return {
+      tab: 'map',
       // auth: 'users',
       users: [],
       collapsedLayers: [],
@@ -382,6 +397,12 @@ export default {
     }
   },
   computed: {
+    tabs () {
+      return [
+        { key: 'map', icon: 'map', label: 'Map permissions' },
+        { key: 'settings', icon: 'settings', label: 'Settings permissions' }
+      ]
+    },
     authSettingsValid () {
       const { auth } = this.settings
       return !!auth && has(auth, 'type')// && has(auth, 'roles')
@@ -506,6 +527,9 @@ export default {
         return layersList(this.linkedLayersGroup.layers).map(l => l.id)
       }
       return null
+    },
+    projectSuperuserAccess () {
+      return this.$root.user.is_superuser || this.project.name.split('/')[0] === this.$root.user.username
     }
   },
   mounted () {
@@ -641,7 +665,19 @@ export default {
 //   flex-direction: column;
 //   max-width: 460px;
 // }
-
+.header-bar {
+  // background-color: #eee;
+}
+.tabs-header.main {
+  // align-self: center;
+  // align-self: flex-start;
+  // align-self: flex-end;
+  ::v-deep .item {
+    // min-width: 220px;
+  }
+  background-color: #eee;
+  border-bottom: 1px solid #ddd;
+}
 .roles-settings {
   display: grid;
   grid-template-columns: 275px 1fr;
@@ -713,21 +749,6 @@ export default {
 .error {
   color: var(--color-red);
   --icon-color: currentColor;
-}
-.tabs-header {
-  background-color: #eee;
-  height: 32px;
-  .tab {
-    padding-inline: 6px;
-    height: inherit;
-    // padding: 3px;
-    display: flex;
-    align-items: center;
-    &.active {
-      color: #fff;
-      background-color: var(--color-primary);
-    }
-  }
 }
 .desc-text {
   opacity: 0.6;
