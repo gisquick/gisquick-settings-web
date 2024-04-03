@@ -220,6 +220,7 @@
 // import JsonPretty from 'vue-json-pretty'
 // import 'vue-json-pretty/lib/styles.css'
 import mapValues from 'lodash/mapValues'
+import mapKeys from 'lodash/mapKeys'
 import cloneDeep from 'lodash/cloneDeep'
 import isEqual from 'lodash/isEqual'
 import pickBy from 'lodash/pickBy'
@@ -427,8 +428,8 @@ export default {
     if (this.publishedProject) {
       if (this.template) {
         try {
-          const { data } = await this.$http.get(`/api/project/full-info/${this.template}`)
-          const settings = this.newSettingsFromTemplate(this.publishedProject.meta, data.settings)
+          const { data: templateProject } = await this.$http.get(`/api/project/full-info/${this.template}`)
+          const settings = this.newSettingsFromTemplate(templateProject, this.publishedProject)
           settings.template = this.template
           this.settings = settings
         } catch (err) {
@@ -465,14 +466,37 @@ export default {
       }
       return state
     },
-    newSettingsFromTemplate (meta, baseSettings) {
-      // Check map projection?
-      let settings = cloneDeep(baseSettings)
-      settings.title = meta.title
-      settings.extent = meta.extent
-      const baseLayers = settings.base_layers || meta.base_layers
-      settings.base_layers = baseLayers?.filter(id => meta.layers_tree.some(item => item.id === id)) ?? []
-      return validatedSettings(settings, meta)
+    newSettingsFromTemplate (template, project) {
+      let settings = cloneDeep(template.settings)
+
+      // remap layers ids by layer name when id doesn't match
+      const map = Object.entries(template.meta.layers).reduce((m, [lid, l]) => (m[l.name] = lid, m), {})
+      const mapping = {}
+      Object.entries(project.meta.layers).forEach(([lid, l]) => {
+        if (!template.meta.layers[lid] && map[l.name]) {
+          mapping[map[l.name]] = lid
+        }
+      })
+      if (Object.keys(mapping).length > 0) {
+        const remapObj = (obj, key) => (obj[key] = mapKeys(obj[key], (_, lid) => mapping[lid] || lid))
+        const remapArray = (obj, key) => (obj[key] = obj[key]?.map(lid => mapping[lid] || lid))
+        remapObj(settings, 'layers')
+        settings.auth.roles?.forEach(role => {
+          remapObj(role.permissions, 'layers')
+          remapObj(role.permissions, 'attributes')
+        })
+        remapArray(settings, 'base_layers')
+        settings.topics?.forEach(t => remapArray(t, 'visible_overlays'))
+      }
+
+      // override selected attributes
+      settings.title = project.meta.title
+      settings.extent = project.meta.extent
+      const baseLayers = settings.base_layers || project.meta.base_layers
+      settings.base_layers = baseLayers?.filter(id => project.meta.layers_tree.some(item => item.id === id)) ?? []
+
+      // create final  validated settings
+      return validatedSettings(settings, project.meta)
     },
     newSettings (meta) {
       const layers = mapValues(meta.layers, (l) => ({
