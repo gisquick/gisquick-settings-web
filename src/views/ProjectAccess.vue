@@ -199,7 +199,7 @@
           </template>
 
           <!-- eslint-disable-next-line -->
-          <template v-slot:group-append="{ group }">
+          <template v-slot:group.perms="{ group }">
             <v-btn
               class="group-link icon flat"
               :color="linkedLayersGroup === group ? 'primary' : ''"

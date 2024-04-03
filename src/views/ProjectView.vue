@@ -236,6 +236,7 @@ import { scalesToResolutions, ProjectionsScales } from '@/utils/scales'
 import { TaskState, watchTask } from '@/tasks'
 import { objectDiff } from '@/utils/diff'
 import { hasAny, pull } from '@/utils/collections'
+import { layersGroups } from '@/utils/layers'
 
 import MapImg from '@/assets/map.svg?component'
 
@@ -308,6 +309,13 @@ function validatedSettings (settings, meta) {
   Object.keys(meta.layers).filter(lid => !settings.layers[lid]).forEach(lid => {
     settings.layers[lid] = { flags: [...meta.layers[lid].flags] }
   })
+
+  // keep only relevant groups settings
+  if (settings.groups) {
+    const metaGroupIds = layersGroups(meta.layers_tree).map(g => g.wms_name)
+    settings.groups = pickBy(settings.groups, (_, gid) => metaGroupIds.includes(gid))
+  }
+
   // temporary
   settings.topics?.filter(t => !t.id).forEach(t => {
     t.id = t.title.toLowerCase().replace(/ /, '_')

@@ -111,7 +111,7 @@ export default {
     layers () {
       if (this.meta) {
         const { layers_tree, layers } = this.meta
-        return transformLayersTree2(layers_tree, id => layers[id], (name, layers) => ({ name, layers }))
+        return transformLayersTree2(layers_tree, id => layers[id], (g, layers) => ({ ...g, layers }))
         // return transformLayersTree(layers_tree, l => layers[l.id], (g, layers) => ({ name: g.name, layers }))
       }
       return []

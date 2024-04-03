@@ -26,9 +26,16 @@
       </ul>
     </template>
 
-    <template v-if="errors.invalidLayersNames || errors.duplicateLayersNames">
+    <template v-if="errors.invalidWmsNameGroups">
+      <strong class="p-2">Invalid QGIS Server group names:</strong>
+      <ul>
+        <li v-for="(g, i) in errors.invalidWmsNameGroups" :key="i" v-text="g.name"/>
+      </ul>
+    </template>
+
+    <template v-if="errors.invalidLayersNames || errors.duplicateLayersNames || errors.invalidWmsNameGroups">
       <div class="hint p-2">
-        <span>It is recommended to assign a unique <strong>Short name</strong> for every layer,
+        <span>It is recommended to assign a unique <strong>Short name</strong> for every layer and group,
           which should start with an unaccented alphabetical letter, followed by any alphanumeric letters, dot, dash or underscore.</span>
           You can configure them in QGIS
           <span class="breadcrumb">(
@@ -59,7 +66,7 @@ import pickBy from 'lodash/pickBy'
 import mapValues from 'lodash/mapValues'
 
 import ShortNamesEditor from '@/components/ShortNamesEditor.vue'
-import { isValidLayerName } from '@/utils/layers'
+import { layersGroups, isValidLayerName } from '@/utils/layers'
 
 const absPathRegex = /^(\w:)?\//
 
@@ -77,6 +84,11 @@ function filesOutsideDirectory (projectInfo) {
 
 export function layersErrors (projectInfo) {
   const errors = {}
+  const groups = layersGroups(projectInfo.layers_tree)
+  const invalidGroups = groups.filter(g => !g.wms_name || !isValidLayerName(g.wms_name))
+  if (invalidGroups.length) {
+    errors.invalidWmsNameGroups = invalidGroups
+  }
   const layers = Object.values(projectInfo.layers)
   const names = layers.map(l => l.name)
   const duplicates = pickBy(countBy(names), count => count > 1)

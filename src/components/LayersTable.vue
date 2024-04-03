@@ -255,26 +255,36 @@ export default {
       const paddingStyle = {
         paddingLeft: `${30 * depth}px`,
       }
-      const appendSlot = this.$scopedSlots['group-append']
+      const groupColumns = this.columns.map(column => {
+        const slot = this.$scopedSlots[`group.${column.value}`]
+        let content
+        if (slot) {
+          const innerContent = slot({ group, depth })
+          const wrapperCls = ['f-row-ac', CellAlignCls[column.align]]
+          content = <div class={wrapperCls}>{innerContent}</div>
+        } else {
+          content = <span/>
+        }
+        return <td class={column.tdClass}>{content}</td>
+      })
       const groupNode = (
         <tr key={group.name} class={['group', {[this.selectedClass]: this.groupKey(group) === this.selected}]}>
           <td
-            colspan={this.columns.length + 1}
             onClick={() => this.$emit('click:row', group)}
             key={group.name}
           >
             <div class="f-row-ac" style={paddingStyle} {...this.itemBoundRenderData(group)}>
               <v-icon
                 class="mr-2"
-                size="24"
+                size="20"
                 name={groupIcon}
                 role="button"
                 vOn:click_stop={() => this.toggleGroup(group)}
               />
               <span>{group.name}</span>
-              {appendSlot?.({ group })}
             </div>
           </td>
+          {...groupColumns}
         </tr>
       )
       return [groupNode, ...children]
@@ -284,7 +294,9 @@ export default {
       return (
         <th class="header">
           <div class="f-row-ac">
-            <v-icon name="folder-open" size="24" onClick={this.expandAll}/>
+            <v-btn class="icon flat mx-0" onClick={this.expandAll}>
+              <v-icon name="folder-open"/>
+            </v-btn>
             <span class="mx-2">{this.label}</span>
             <span class="spacer"/>
             <v-text-field

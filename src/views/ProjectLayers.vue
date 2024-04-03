@@ -4,14 +4,6 @@
       <span>Layers</span>
     </portal> -->
     <span class="label">Base Layers</span>
-    <!-- <v-btn
-      class="switch small m-0"
-      color="yellow"
-      :disabled="!selected"
-      @click="swapSelectedLayer"
-    >
-      <v-icon name="swap"/>
-    </v-btn> -->
     <span class="label">Overlays</span>
     <layers-table
       class="base-layers"
@@ -42,6 +34,15 @@
       @dragover.native.prevent="onLayerDragOver"
       @drop.native="onLayerDrop(overlays)"
     >
+      <!-- eslint-disable-next-line -->
+      <template v-slot:group.flags="{ group }">
+        <group-settings
+          v-if="group.wms_name"
+          :value="groupsSettings[group.wms_name]"
+          @input="updateGroupSetting(group, $event)"
+        />
+      </template>
+
       <!-- eslint-disable-next-line -->
       <template v-slot:leaf.flags="{ item }">
         <layer-flags
@@ -91,12 +92,13 @@
 <script>
 import LayerFlags from '@/components/LayerFlags.vue'
 import LayersTable from '@/components/LayersTable.vue'
+import GroupSettings from '@/components/GroupSettings.vue'
 import { layersGroups, transformLayersTree } from '@/utils/layers'
 import { pull } from '@/utils/collections'
 
 export default {
   name: 'ProjectLayers',
-  components: { LayerFlags, LayersTable },
+  components: { LayerFlags, LayersTable, GroupSettings },
   props: {
     project: Object,
     settings: Object
@@ -162,7 +164,7 @@ export default {
       return transformLayersTree(
         overlaysTree,
         l => ({ ...meta.layers[l.id] }),
-        (g, layers) => ({ name: g.name, layers })
+        (g, layers) => ({ name: g.name, layers, wms_name: g.wms_name })
       )
     },
     groupsInfo () {
@@ -170,6 +172,9 @@ export default {
       return tree
         .filter(n => n.layers)
         .reduce((data, g) => (data[g.name] = layersGroups(g.layers).map(sg => sg.name), data), {})
+    },
+    groupsSettings () {
+      return this.settings.groups || {}
     },
     dragEvents () {
       return {
@@ -273,6 +278,12 @@ export default {
         dList.push(...collapsed)
         pull(sList, ...collapsed)
       }
+    },
+    updateGroupSetting (group, settings) {
+      if (!this.settings.groups) {
+        this.$set(this.settings, 'groups', {})
+      }
+      this.$set(this.settings.groups, group.wms_name, settings)
     }
   }
 }
@@ -325,5 +336,8 @@ export default {
     // flex-grow: 1;
     // width: 100%;
   }
+}
+.group-settings {
+  margin-right: 24px;
 }
 </style>

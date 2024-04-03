@@ -21,6 +21,21 @@
       </template>
 
       <!-- eslint-disable-next-line -->
+      <template v-slot:group.name="{ group, value }">
+        <v-text-field
+          class="filled mx-0"
+          v-model="groupNames[group.id]"
+          :error="invalidGroupNames[group.id]"
+          :validator="isValidLayerName"
+          lazy
+        >
+          <template v-slot:append>
+            <v-icon v-if="invalidGroupNames[group.id]" name="warning" color="red" size="17"/>
+          </template>
+        </v-text-field>
+      </template>
+
+      <!-- eslint-disable-next-line -->
       <template v-slot:header.wfs>
         <th class="header">
           <div class="f-row-ac">
@@ -55,9 +70,10 @@
 <script>
 import mapValues from 'lodash/mapValues'
 import pickBy from 'lodash/pickBy'
+import keyBy from 'lodash/keyBy'
 
 import LayersTable from '@/components/LayersTable.vue'
-import { isValidLayerName, transformLayersTree, transformLayersTree2 } from '@/utils/layers'
+import { isValidLayerName, layersGroups, transformLayersTree2 } from '@/utils/layers'
 import { removeDiacritics } from '@/ui/utils/text'
 
 const isAlphaNum = RegExp.prototype.test.bind(/[a-zA-Z0-9]/)
@@ -84,7 +100,8 @@ export default {
   data () {
     return {
       collapsed: [],
-      names: {}
+      names: {},
+      groupNames: {}
     }
   },
   computed: {
@@ -93,7 +110,10 @@ export default {
     },
     layersTree () {
       const { layers_tree, layers } = this.meta
-      return transformLayersTree2(layers_tree, id => layers[id], (name, layers) => ({ name, layers }))
+      return transformLayersTree2(layers_tree, id => layers[id], (g, layers, i) => ({ ...g, layers, id: i.join(',') }))
+    },
+    groups () {
+      return layersGroups(this.layersTree)
     },
     columns () {
       return [
@@ -112,6 +132,9 @@ export default {
     },
     invalidNames () {
       return mapValues(this.names, name => !isValidLayerName(name))
+    },
+    invalidGroupNames () {
+      return mapValues(this.groupNames, name => !isValidLayerName(name))
     }
   },
   watch: {
@@ -122,8 +145,8 @@ export default {
   },
   methods: {
     initLayersList () {
-      console.log('initLayersList')
       this.names = mapValues(this.layers, l => l.name)
+      this.groupNames = this.groups.reduce((names, g) => (names[g.id] = g.wms_name || '', names), {})
     },
     generateNames () {
       Object.values(this.layers).forEach(l => {
@@ -131,10 +154,17 @@ export default {
           this.names[l.id] = shortName(l.name)
         }
       })
+      this.groups.forEach(g => {
+        if (this.invalidGroupNames[g.id]) {
+          this.groupNames[g.id] = shortName(g.name)
+        }
+      })
     },
     async updateProject () {
       const names = pickBy(this.names, (name, id) => name !== this.layers[id].name)
-      await this.$ws.request('UpdateQgisProject', { short_names: names })
+      const groupsMap = keyBy(this.groups, 'id')
+      const groupNames = pickBy(this.groupNames, (name, id) => name !== groupsMap[id].wms_name && (name || groupsMap[id].wms_name))
+      await this.$ws.request('UpdateQgisProject', { short_names: names, groups_short_names: groupNames })
       this.$emit('project-update')
     }
   }
