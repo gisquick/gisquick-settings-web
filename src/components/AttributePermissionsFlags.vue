@@ -26,7 +26,7 @@ export default {
   },
   computed: {
     readonlyConstrain () {
-      return this.attributeMeta.constrains?.includes('readonly')
+      return this.attributeMeta.constraints?.includes('readonly')
     },
     flags () {
       const attrVisible = this.value.includes('view')

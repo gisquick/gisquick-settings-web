@@ -53,7 +53,7 @@ export default {
     editableFields () {
       if (this.layerEditable) {
         return this.layer.attributes
-          .filter(attr => !attr.constrains?.includes('readonly') && this.values[attr.name].includes('view'))
+          .filter(attr => !attr.constraints?.includes('readonly') && this.values[attr.name].includes('view'))
           .map(attr => attr.name)
       }
       return []
