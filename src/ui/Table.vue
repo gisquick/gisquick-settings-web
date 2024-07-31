@@ -270,7 +270,7 @@ export default {
       }
     },
     formatValue (value, item, col) {
-      return formats[col.format](value)
+      return typeof col.format === 'string' ? formats[col.format](value) : col.format?.(value)
     }
   }
 }
@@ -325,6 +325,7 @@ export default {
       }
     }
     &.outlined {
+      border: 1px solid #bbb;
       table {
         thead {
           border: 1px solid #bbb;
@@ -342,11 +343,10 @@ export default {
   overflow: auto;
   table {
     font-size: 13px;
-    // border-collapse: separate;
-    // border-spacing: 0;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     min-width: 100%;
-    display: relative;
+    position: relative;
   }
   thead {
     // text-transform: uppercase;

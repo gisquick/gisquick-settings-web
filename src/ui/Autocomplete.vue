@@ -5,13 +5,17 @@
     :error="error"
     :label="label"
     :color="color"
-    :disabled="disabled"
     aria-haspopup="true"
     :aria-disabled="disabled"
     :aria-expanded="showPopup ? 'true' : 'false'"
     role="combobox"
   >
-    <div class="input f-row-ac" tabindex="-1" @click="focusInput">
+    <div
+      class="input f-row-ac"
+      :disabled="disabled"
+      tabindex="-1"
+      @click="focusInput"
+    >
       <v-icon v-if="icon" :name="icon" class="mx-2" color="grey"/>
       <span
         v-if="value && !hideValue"
@@ -221,7 +225,7 @@ export default {
       return this.displayedItems.map(item => {
         return fields.reduce((obj, field) => {
           const text = item[field]
-          obj[field] = this.text.length > 1 ? highlight(text, this.text) : text
+          obj[field] = text && this.text.length > 1 ? highlight(text, this.text) : text
           return obj
         }, {})
       })

@@ -22,6 +22,7 @@ export default Vue.observable({
   ...numeric,
   roundNum: numeric.num.pre(Math.round),
   truncNum: numeric.num.pre(Math.trunc),
+  list: v => v?.join(', '),
 
   filesize: v => {
     if (Number.isFinite(v)) {

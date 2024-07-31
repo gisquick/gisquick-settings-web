@@ -1,5 +1,7 @@
 
 import GML3 from 'ol/format/GML3'
+import mapValues from 'lodash/mapValues'
+import pickBy from 'lodash/pickBy'
 
 function OrOperator (filters) {
   return '<ogc:Or>' + filters.join('\n') + '</ogc:Or>'
@@ -149,4 +151,18 @@ export function getFeatureByIdQuery (layer, feature) {
     value: id
   }
   return getFeatureQuery(_layerFeaturesQuery(layer, null, [filter]))
+}
+
+export function formatFeatures (features, formatters) {
+  formatters = pickBy(formatters, f => f)
+  features.forEach(f => {
+    f._formattedProperties = mapValues(formatters, (formatter, name) => formatter.format(f.get(name)))
+
+    Object.defineProperty(f, 'getFormatted', {
+      // configurable: true,
+      value: function (key) {
+        return this._formattedProperties[key] ?? this.get(key)
+      }
+    })
+  })
 }

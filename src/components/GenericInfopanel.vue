@@ -1,7 +1,7 @@
 <template>
   <div class="generic-infopanel">
     <div class="fields">
-      <template v-for="(attr, index) in attributes">
+      <template v-for="(attr, index) in fields">
         <span
           class="label"
           :key="attr.name"
@@ -17,6 +17,34 @@
         </slot>
       </template>
     </div>
+    <template v-if="relations && showRelations">
+      <div v-for="(relation) in relations" :key="relation.name" class="relations">
+        <div class="header f-row-ac" @click="expanded[relation.name] = !expanded[relation.name]">
+          <span class="label" v-text="relation.name"/>
+          <span v-if="relationsData" class="mx-2">({{ relationsData[relation.name].length }})</span>
+          <div class="f-grow"/>
+          <v-icon
+            class="toggle mx-2"
+            :class="{expanded: expanded[relation.name]}"
+            name="arrow-down"
+            size="12"
+          />
+        </div>
+          <div v-if="relationsData && expanded[relation.name]" class="f-col">
+            <component
+              v-for="(f, fi) in relationsData[relation.name]"
+              :key="`${relation.name}-${fi}`"
+              :is="relation.component"
+              :feature="f"
+              :layer="relation.layer"
+              :project="project"
+              :properties="relation.properties"
+              :show-relations="false"
+              class="nested"
+            />
+          </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -26,9 +54,12 @@ import round from 'lodash/round'
 import format from 'date-fns/format'
 import parse from 'date-fns/parse'
 import path from 'path'
+import GeoJSON from 'ol/format/GeoJSON'
 
 import VImage from '@/components/image/Image.vue'
 import { valueMapItems } from '@/adapters/attributes'
+import { layerFeaturesQuery, formatFeatures } from '@/map/featureinfo'
+
 
 function Widget (render) {
   return {
@@ -219,26 +250,44 @@ export function createMediaFileTableWidget (createUrl) {
   })
 }
 
-export default {
+const GenericInfoPanel = {
   components: { VImage },
   props: {
     feature: Object,
+    properties: Array,
     layer: Object,
-    project: Object
+    project: Object,
+    showRelations: {
+      type: Boolean,
+      default: true
+    }
+  },
+  data () {
+    return {
+      relationsData: null,
+      expanded: {}
+    }
   },
   computed: {
-    attributes () {
-      if (this.layer.info_panel_fields) {
-        const attrsMap = keyBy(this.layer.attributes, 'name')
-        return this.layer.info_panel_fields.map(name => attrsMap[name])
+    fields () {
+      const { attributes, bands, info_panel_fields } = this.layer
+      if (attributes) {
+        const fields = this.properties || info_panel_fields
+        if (fields) {
+          const attrsMap = keyBy(attributes, 'name')
+          return fields.map(name => attrsMap[name])
+        }
+        return attributes
+      } else if (bands) {
+        return bands.map(name => ({ name, type: 'text' }))
       }
-      return this.layer.attributes
+      return []
     },
     values () {
-      return this.attributes.map(attr => this.feature?.getFormatted(attr.name))
+      return this.fields.map(attr => this.feature?.getFormatted(attr.name))
     },
     widgets () {
-      return this.attributes.map(attr => {
+      return this.fields.map(attr => {
         const { type, widget } = attr
         if (widget === 'ValueMap') {
           return ValueMapWidget
@@ -260,9 +309,91 @@ export default {
         }
         return RawWidget
       })
+    },
+    relations () {
+      return this.layer.relations?.filter(r => r.infopanel_view !== 'hidden').map(r => {
+        let component = GenericInfoPanel
+        const rLayer = r.referencing_layer
+        if (rLayer.infopanel_component) {
+          try {
+            component = externalComponent(this.project, rLayer.infopanel_component)
+          } catch (err) {
+            console.error(`Failed to load infopanel component: ${this.layer.infopanel_component}`)
+          }
+        }
+        let properties = null
+        if (r.infopanel_view === 'selected') {
+          const orderedFields = rLayer.info_panel_fields || rLayer.attributes.map(a => a.name)
+          properties = orderedFields.filter(n => r.fields.includes(n))
+        }
+        return {
+          name: r.name,
+          layer: rLayer,
+          properties,
+          component
+        }
+      })
+    }
+  },
+  watch: {
+    feature: {
+      immediate: true,
+      async handler (f) {
+        this.relationsData = null
+        if (this.relations?.length && this.showRelations) {
+          this.relationsData = await this.fetchRelationsData(this.layer, f)
+        }
+      }
+    },
+    layer: {
+      immediate: true,
+      handler () {
+        const expanded = {}
+        this.layer.relations?.forEach(r => {
+          expanded[r.name] = true
+        })
+        this.expanded = expanded
+      }
+    }
+  },
+  methods: {
+    async fetchRelationsData (layer, feature) {
+      if (!feature._relationsData) {
+        feature._relationsData = {}
+      }
+      const relationsToFetch = layer.relations.filter(r => r.infopanel_view !== 'hidden' && !feature._relationsData[r.name])
+      const tasks = relationsToFetch.map(async rel => {
+        const filters = rel.referencing_fields.map((field, i) => ({
+          attribute: field,
+          operator: '=',
+          value: feature.get(rel.referenced_fields[i])
+        }))
+        // TODO: update layerFeaturesQuery from web-map
+        const query = layerFeaturesQuery(rel.referencing_layer, null, filters)
+
+        const params = {
+          'VERSION': '1.1.0',
+          'SERVICE': 'WFS',
+          'REQUEST': 'GetFeature',
+          'OUTPUTFORMAT': 'GeoJSON'
+        }
+        const headers = { 'Content-Type': 'text/xml' }
+        const { data } = await this.$http.post(this.project.ows_url, query, { params, headers })
+        const parser = new GeoJSON()
+        const features = parser.readFeatures(data)
+        formatFeatures(features, this.project.formatters)
+        // return ShallowArray(features)
+        return Object.freeze(features)
+      })
+      const results = await Promise.all(tasks)
+      relationsToFetch.forEach((r, i) => {
+        feature._relationsData[r.name] = results[i]
+      })
+      return feature._relationsData
     }
   }
 }
+export default GenericInfoPanel
 </script>
 
 <style lang="scss" scoped>
@@ -383,6 +514,19 @@ export default {
       height: 64px;
       padding: 6px 0;
       justify-self: center;
+    }
+  }
+}
+.relations {
+  margin-top: 3px;
+  .header {
+    cursor: pointer;
+    padding: 2px 6px;
+    .toggle {
+      transition: .3s cubic-bezier(.25,.8,.5,1);
+      &.expanded {
+        transform: rotate(180deg);
+      }
     }
   }
 }

@@ -5,7 +5,18 @@
         <formatters-editor class="p-2" :settings="data"/>
       </template>
     </v-dialog>
-    <section class="card">
+    <v-dialog ref="relationDialog" title="Relations" persistent>
+      <template v-slot="{ data, close }">
+        <relation-form
+          class="p-2"
+          v-bind="data"
+          @close="close"
+          @submit="updateRelation"
+          @delete="deleteRelation"
+        />
+      </template>
+    </v-dialog>
+    <section class="card mb-2">
       <div class="header f-row-ac px-2 dark">
         <span class="title">Attributes</span>
         <div class="f-grow"/>
@@ -131,10 +142,39 @@
         </template>
       </v-table>
     </section>
-    <!-- <small class="switch f-row-ac m-1">
+    <small class="switch f-row-ac mx-1 mb-4">
       <v-icon name="circle-i-outline" class="m-1" size="16"/>
       <span>You can change order of attributes with Drag&Drop</span>
-    </small> -->
+    </small>
+
+    <section class="card">
+      <div class="header f-row-ac px-2 dark">
+        <span class="title">Relations</span>
+        <div class="f-grow"/>
+          <v-btn class="icon" @click="newRelation">
+            <v-icon name="plus"/>
+          </v-btn>
+      </div>
+      <v-table
+        v-if="layer.relations && layer.relations.length"
+        :columns="relationColumns"
+        :items="layer.relations"
+      >
+        <!-- eslint-disable-next-line -->
+        <template v-slot:cell(referencing_layer.name)="{ item, value }">
+          <router-link :to="`${item.referencing_layer.id}`">{{ value }}</router-link>
+        </template>
+        <!-- eslint-disable-next-line -->
+        <template v-slot:cell(settings)="{ item }">
+          <v-btn class="icon" @click="showRelationForm(item)">
+            <v-icon name="settings"/>
+          </v-btn>
+        </template>
+      </v-table>
+      <div v-else class="p-2 text-center">
+        <small>Relations not defined</small>
+      </div>
+    </section>
 
     <section class="card f-col">
       <div class="header f-row-ac px-2 dark">
@@ -316,18 +356,19 @@ import intersection from 'lodash/intersection'
 import keyBy from 'lodash/keyBy'
 import mapValues from 'lodash/mapValues'
 import pickBy from 'lodash/pickBy'
+import pick from 'lodash/pick'
 import GeoJSON from 'ol/format/GeoJSON'
 
 import WidgetSettings from '@/components/WidgetSettings.vue'
 import FormattersEditor, { createFormatter } from '@/components/FormattersEditor.vue'
+import RelationForm from '@/components/RelationForm.vue'
 import VImage from '@/components/image/Image.vue'
 import GenericInfoPanel, { DateWidget, ValueMapWidget, BoolWidget, UrlWidget, createTableImageWidget, createMediaFileTableWidget, mediaUrlFormat  } from '@/components/GenericInfopanel.vue'
-import { layerFeaturesQuery } from '@/map/featureinfo'
+import { layerFeaturesQuery, formatFeatures } from '@/map/featureinfo'
 import { excludedFieldsSet } from '@/adapters/attributes'
 import { externalComponent } from '@/components-loader'
 import { TaskState, watchTask } from '@/tasks'
 import { pull } from '@/utils/collections'
-import { isEmpty } from 'ol/extent'
 
 export async function loadUmdScript (url, filename) {
   return new Promise((resolve, reject) => {
@@ -353,23 +394,53 @@ export async function loadUmdScript (url, filename) {
   })
 }
 
-function formatFeatures (features, formatters) {
-  formatters = pickBy(formatters, f => f)
-  features.forEach(f => {
-    f._formattedProperties = mapValues(formatters, (formetter, name) => formetter.format(f.get(name)))
+function layerAppConfig (layerId, meta, settings, cache = {}) {
+  const layerSettings = settings.layers[layerId]
+  const { id, name, attributes, relations: qgisRelations } = meta.layers[layerId]
+  const attrsSettings = layerSettings.attributes ?? {}
 
-    Object.defineProperty(f, 'getFormatted', {
-      // configurable: true,
-      value: function (key) {
-        return this._formattedProperties[key] ?? this.get(key)
+  const layer = {
+    id,
+    name,
+    ...layerSettings,
+    attributes: attributes.map(attr => ({
+      ...attr,
+      ...attrsSettings[attr.name]
+    }))
+  }
+  cache[id] = layer
+  delete layer.qgis_relations // unnecessary
+  if (qgisRelations || layerSettings.relations) {
+    const relations = []
+    if (qgisRelations) {
+      relations.push(...qgisRelations?.map(r => ({ ...r, ...layerSettings.qgis_relations?.[r.id] })))
+    }
+    if (layerSettings.relations) {
+      relations.push(...layerSettings.relations)
+    }
+    layer.relations = relations.map(r => {
+      const lm = Object.values(meta.layers).find(l => l.name === r.referencing_layer)
+      return {
+        ...r,
+        referencing_layer: cache[lm.id] || layerAppConfig(lm.id, meta, settings, cache)
       }
     })
-  })
+  }
+  if (layerSettings.fields_order) {
+    layer.info_panel_fields = layerSettings.fields_order.infopanel || layerSettings.fields_order.global
+    // ? attr_table_fields
+  }
+  const excludedInfopanelFields = excludedFieldsSet(layerSettings, 'infopanel')
+  if (excludedInfopanelFields.size) {
+    layer.info_panel_fields = layer.info_panel_fields || attributes.map(a => a.name)
+    layer.info_panel_fields = layer.info_panel_fields.filter(n => !excludedInfopanelFields.has(n))
+  }
+  return layer
 }
 
 export default {
   name: 'LayerAttributes',
-  components: { FormattersEditor, VImage, WidgetSettings },
+  components: { FormattersEditor, VImage, WidgetSettings, RelationForm },
   props: {
     project: Object,
     settings: Object,
@@ -543,23 +614,8 @@ export default {
       }))
     },
     layer () {
-      const { id, name } = this.project.meta.layers[this.layerId]
-      const { attributes: _, ...settings } = this.layerSettings
-      const layer = {
-        id,
-        name,
-        attributes: this.finalAttributes,
-        ...settings
-      }
-      if (this.layerSettings.fields_order) {
-        layer.info_panel_fields = this.layerSettings.fields_order.infopanel || this.layerSettings.fields_order.global
-        // ? attr_table_fields
-      }
-      if (this.excludedInfopanelFields.size) {
-        layer.info_panel_fields = layer.info_panel_fields || this.finalAttributes.map(a => a.name)
-        layer.info_panel_fields = layer.info_panel_fields.filter(n => !this.excludedInfopanelFields.has(n))
-      }
-      return layer
+      console.log('creating layer app config')
+      return layerAppConfig(this.layerId, this.project.meta, this.settings)
     },
     selectedFeature () {
       return this.features[this.selectedRow]
@@ -571,12 +627,12 @@ export default {
     selectedFeatureId () {
       return this.selectedFeature?.getId()
     },
-    infopanelProject () {
+    infopanelProject () { // TODO: sync with the map app
       return {
         name: this.project.name,
         ows_project: this.project.name,
         ows_url:  `/api/project/ows/${this.project.name}`,
-        // formatter: name => formatters[name]
+        formatters: this.layerFormatters
       }
     },
     projectFormatters () {
@@ -738,6 +794,61 @@ export default {
           layout.splice(dIndex, 0, dragSrc)
         }
       }
+    },
+    relationColumns () {
+      return [
+        {
+        //   key: 'id',
+        //   label: 'ID'
+        // }, {
+          key: 'name',
+          label: 'Name'
+        }, {
+          key: 'strength',
+          label: 'Strength',
+          mapValues: {
+            0: 'Association',
+            1: 'Composition'
+          },
+        }, {
+          key: 'referencing_layer.name',
+          label: 'Referencing layer'
+        }, {
+          key: 'referencing_fields',
+          label: 'Referencing fields',
+          format: 'list'
+        }, {
+          key: 'referenced_fields',
+          label: 'Referenced fields',
+          format: 'list'
+        }, {
+          key: 'settings',
+          label: 'Settings'
+        }
+      ]
+    },
+    relationAttributesColumns () {
+      return [
+        {
+          key: 'name',
+          label: 'Name'
+        }, {
+          key: 'alias',
+          label: 'Alias'
+        }, {
+          key: 'type',
+          label: 'Type'
+        }, {
+          key: 'widget',
+          label: 'Widget',
+          header: { width: 1 }
+        }, {
+          key: 'visibility',
+          label: 'Visibility',
+          header: { width: 1 },
+          align: 'center'
+        }
+      ]
     }
   },
   created () {
@@ -960,6 +1071,49 @@ export default {
     async deleteScript (item) {
       const { data: scripts } = await this.$http.delete(`/api/project/script/${this.project.name}`, { data: [item.module] })
       this.project.scripts = scripts
+    },
+    showRelationFields (relation) {
+      if (!this.layerSettings.relations) {
+        this.$set(this.layerSettings, 'qgis_relations', {})
+      }
+      if (!this.layerSettings.qgis_relations[relation.id]) {
+        this.$set(this.layerSettings.qgis_relations, relation.id, { fields: [] })
+      }
+      this.$refs.relationDialog.show({ relation })
+    },
+    newRelation () {
+      this.$refs.relationDialog.show({ layer: this.layer, project: this.project })
+    },
+    showRelationForm (relation) {
+      this.$refs.relationDialog.show({ layer: this.layer, project: this.project, relation })
+    },
+    updateRelation (relation, old) {
+      if (!old) {
+        if (!this.layerSettings.relations) {
+          this.$set(this.layerSettings, 'relations', [relation])
+        } else {
+          this.layerSettings.relations.push(relation)
+        }
+      } else {
+        if (relation.id) {
+          // update qgis relation settings
+          if (!this.layerSettings.qgis_relations) {
+            this.$set(this.layerSettings, 'qgis_relations', {})
+          }
+          const settings = pick(relation, ['fields', 'infopanel_view', 'label_fields', 'label_separator'])
+          this.$set(this.layerSettings.qgis_relations, relation.id, settings)
+        } else {
+          // update gisquick relation settings
+          const index = this.layer.relations.indexOf(old) - (this.project.meta.layers[this.layerId].relations?.length ?? 0)
+          this.$set(this.layerSettings.relations, index, relation)
+        }
+      }
+      this.$refs.relationDialog.close()
+    },
+    deleteRelation (relation) {
+      const index = this.layer.relations.indexOf(relation) - (this.project.meta.layers[this.layerId].relations?.length ?? 0)
+      this.$delete(this.layerSettings.relations, index)
+      this.$refs.relationDialog.close()
     }
   }
 }
@@ -1008,6 +1162,9 @@ export default {
       a {
         color: var(--color-primary);
         text-decoration: none;
+      }
+      [draggable="true"] {
+        user-select: auto;
       }
     }
   }
@@ -1078,5 +1235,8 @@ export default {
 .note {
   font-size: 14px;
   opacity: 0.7;
+}
+.relations-form {
+  overflow: auto;
 }
 </style>

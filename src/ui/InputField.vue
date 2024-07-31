@@ -66,7 +66,6 @@ export default {
       if (this.focus) {
         this.focus?.()
       } else {
-        console.log('focusable choice', getFocusableElement(this.$el))
         getFocusableElement(this.$el)?.focus()
       }
     }
