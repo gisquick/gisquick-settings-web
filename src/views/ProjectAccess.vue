@@ -55,11 +55,13 @@
         </div> -->
 
         <v-list
+          draggable
           class="roles-panel"
           empty-text="Empty"
           :items="settings.auth.roles"
           :selected="selectedIndex"
           @click-item="selectRole"
+          @reorder="reorderRoles"
         >
           <template v-slot:item="{ item }">
             <span v-text="item.name"/>
@@ -561,6 +563,12 @@ export default {
     },
     selectRole (_, index) {
       this.selectedIndex = index
+    },
+    reorderRoles ({ src, dest }) {
+      const selected = this.selectedRole
+      this.settings.auth.roles.splice(src.index, 1)
+      this.settings.auth.roles.splice(dest.index, 0, src.item)
+      this.selectedIndex = this.settings.auth.roles.indexOf(selected)
     },
     toggleBaseLayerPermission (layer) {
       const visible = this.selectedRole.permissions.layers[layer.id].includes('view')
