@@ -70,6 +70,16 @@
         :settings="settings"
       />
     </v-dialog>
+    <v-dialog ref="importDialog" title="Import Settings">
+      <template v-slot="{ close }">
+        <settings-import
+        v-if="project"
+        :meta="project.meta"
+        :settings="settings"
+        @import="close"
+      />
+      </template>
+    </v-dialog>
     <div v-if="project && settings" class="project-page f-col light">
       <portal to="menu">
         <nav class="menubar2 dark f-grow f-row-ac my-2">
@@ -231,6 +241,7 @@ import JsonViewer from '@/components/JsonViewer.vue'
 // import JsonViewer2 from '@/components/JsonViewer2.vue'
 import JsonViewer2 from '@/components/JsonDiffViewer.vue'
 import ProjectionsSettings from '@/components/ProjectionsSettings.vue'
+import SettingsImport from '@/components/SettingsImport.vue'
 import { scalesToResolutions, ProjectionsScales } from '@/utils/scales'
 import { TaskState, watchTask } from '@/tasks'
 import { objectDiff } from '@/utils/diff'
@@ -240,8 +251,7 @@ import MapImg from '@/assets/map.svg?component'
 
 export default {
   name: 'ProjectView',
-  components: { ConfirmDialog, QgisLayersInfo, MapImg, JsonViewer, JsonViewer2, ProjectionsSettings },
-  // components: { QgisLayersInfo, MapImg, JsonPretty, JsonViewer, JsonViewer2 },
+  components: { ConfirmDialog, QgisLayersInfo, MapImg, JsonViewer, JsonViewer2, ProjectionsSettings, SettingsImport },
   props: {
     user: String,
     name: String,
@@ -296,6 +306,7 @@ export default {
         { text: 'Download Project', icon: 'download', link: `/api/project/download/${this.project.name}` },
         { text: 'WMS Service', icon: 'copy', action: this.copyWmsServiceUrl },
         { text: 'Reset Settings', icon: 'reload', action: this.resetSettings },
+        { text: 'Import Settings', icon: 'swap', action: () => this.$refs.importDialog.show() },
         { text: 'Delete Project', icon: 'delete_forever', action: () => this.$refs.confirmDeleteDialog.show() },
         { text: 'Debug', separator: true },
         { text: 'QGIS Meta', action: () => this.jsonDialog = 'meta' },
