@@ -63,8 +63,8 @@ export function transformLayersTree (layers, transformLayer, transformGroup) {
 
 export function transformLayersTree2 (tree, transformLayer, transformGroup, gi) {
   return tree.map((n, i) => {
-    if (n.layers) {
-      const children = transformLayersTree2(n.layers, transformLayer, transformGroup, gi ? [...gi, i] : [i])
+    if (n.layers || !n.id) {
+      const children = transformLayersTree2(n.layers ?? [], transformLayer, transformGroup, gi ? [...gi, i] : [i])
       return transformGroup(n, children, gi ? [...gi, i] : [i])
     } else {
       return transformLayer(n.id)

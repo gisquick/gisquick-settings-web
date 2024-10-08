@@ -17,12 +17,6 @@
         </template>
       </v-dialog>
 
-      <v-dialog ref="layerNamesDialog" title="QGIS Server layers names">
-        <template v-slot="{ data, close }">
-          <short-names-editor :meta="data" @project-update="close"/>
-        </template>
-      </v-dialog>
-
       <div class="card info f-col">
         <div class="header f-row-ac dark px-4">
           <span class="title">Overview</span>
@@ -427,7 +421,7 @@ export default {
       }
     },
     async enableTemplate () {
-      const t = this.$http.get('/api/projects/')
+      const t = this.$http.get('/api/projects?filter=accessible')
       await watchTask(t, this.tasks.fetchProjects)
       if (this.tasks.fetchProjects.success) {
         this.useTemplate = true
@@ -519,10 +513,6 @@ export default {
   width: clamp(50vw, 960px, 80vw);
   min-height: 90vh;
   padding: 12px;
-}
-.short-names-editor {
-  width: clamp(400px, 600px, 90vw);
-  overflow: auto;
 }
 </style>
 <style lang="scss">
