@@ -1,7 +1,7 @@
 <template>
   <div class="flags f-row-ac">
     <template v-for="flag in flags">
-      <div v-if="flag.separator" class="v-separator"/>
+      <div v-if="flag.separator" :key="`sep_${flag.name}`" class="v-separator"/>
       <v-btn
         v-else
         :key="flag.name"

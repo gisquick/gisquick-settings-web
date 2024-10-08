@@ -217,7 +217,7 @@
             <layer-permissions-flags
               :capabilities="layersPermissionsCapabilities[item.id]"
               :value="layersPerms[item.id]"
-              @change="updateLayerFlag(item, $event)"
+              @change="updateLayerFlag(item.id, $event)"
             />
             <template v-if="item.attributes">
               <div class="v-separator"/>
@@ -271,7 +271,6 @@
                 <span class="f-row-ac f-grow mx-2">Geometry</span>
               </td>
               <td class="geometry-panel f-row f-justify-end">
-                <!-- <geometry-permissions-flags :value="layersPerms[layer.id]" @change="updateLayerFlag(layer, $event)"/> -->
                 <geometry-permissions-flags
                   :layer-permissions="layersPerms[layer.id]"
                   :layer-capabilities="layersPermissionsCapabilities[layer.id]"
@@ -330,14 +329,13 @@
 
 <script>
 import mapValues from 'lodash/mapValues'
-import pickBy from 'lodash/pickBy'
 import has from 'lodash/has'
 import UsersList from '@/components/UsersList.vue'
 import LayersTable from '@/components/LayersTable.vue'
 import RadioGroup from '@/ui/RadioGroup.vue'
 import TextTabsHeader from '@/ui/TextTabsHeader.vue'
 import AttributePermissionsFlags from '@/components/AttributePermissionsFlags.vue'
-import AttributesPermissionsFlags from '@/components/AttributesPermissionsFlags.vue'
+import AttributesPermissionsFlags, { toggleAttributePermissionsFlag } from '@/components/AttributesPermissionsFlags.vue'
 import LayerPermissionsFlags from '@/components/LayerPermissionsFlags.vue'
 import GeometryPermissionsFlags from '@/components/GeometryPermissionsFlags.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -345,6 +343,7 @@ import TabsHeader from '@/ui/TabsHeader.vue'
 
 import { extend, pull, hasAny } from '@/utils/collections'
 import { transformLayersTree, layersList } from '@/utils/layers'
+import { initLayersPermissions } from '@/utils/project'
 import { layerCapabilities, layerPermissionsCapabilities } from '@/flags'
 import { TaskState, watchTask } from '@/tasks'
 
@@ -353,23 +352,6 @@ function fullName (user) {
   return parts.filter(p => p).join(' ')
 }
 
-export function initLayersPermissions (layers) {
-  return {
-    layers: mapValues(layers, () => ['view']),
-    attributes: mapValues(
-      pickBy(layers, l => l.attributes),
-      l => ({
-        ...Object.fromEntries(l.attributes.map(a => [a.name, ['view']])),
-        geometry: []
-      })
-    ),
-    // attributes: mapValues(this.project.meta.layers, l => l.attributes && Object.fromEntries(l.attributes.map(a => [a.name, ['view']]))),
-    // layers: mapValues(this.project.meta.layers, l => ({
-    //   flags: ['view'],
-    //   attributes: l.attributes && Object.fromEntries(l.attributes.map(a => [a.name, ['view']]))
-    // }))
-  }
-}
 
 export default {
   name: 'ProjectAccess',
@@ -614,14 +596,33 @@ export default {
         Object.values(attrsPerms).forEach(perms => pull(perms, ...flags))
       }
     },
-    updateLayerFlag (layer, { flag, value }) {
-      const layersIdes = this.linkedLayersIds || [layer.id]
-      layersIdes.forEach(lid => {
+    updateLayerFlag (layerId, { flag, value }) {
+      const layersIds = this.linkedLayersIds?.includes(layerId) ? this.linkedLayersIds : [layerId]
+      layersIds.forEach(lid => {
+        const layer = this.project.meta.layers[lid]
         const lperms = this.layersPerms[lid]
         const capabilities = this.layersPermissionsCapabilities[lid]
         if (value) {
           if (capabilities[flag]) {
             extend(lperms, flag)
+            const attrsPerms = this.attrsPerms[lid]
+            if (attrsPerms) {
+              const layerSettings = this.settings.layers[lid]
+              if (flag === 'view') {
+                if (this.layersPerms[lid].includes('query')) {
+                  toggleAttributePermissionsFlag(attrsPerms, 'view', value, layer, layerSettings, lperms)
+                }
+              } else if (flag === 'query') {
+                toggleAttributePermissionsFlag(attrsPerms, 'view', value, layer, layerSettings, lperms)
+              } else if (flag === 'export') {
+                toggleAttributePermissionsFlag(attrsPerms, 'export', value, layer, layerSettings, lperms)
+              } else { // update, insert, delete
+                const isEmpty = Object.values(attrsPerms).every(v => !v.includes('edit')) //&& attrsPerms.geometry?.includes('edit')
+                if (isEmpty) {
+                  toggleAttributePermissionsFlag(attrsPerms, 'edit', value, layer, layerSettings, lperms)
+                }
+              }
+            }
           }
         } else {
           pull(lperms, flag)

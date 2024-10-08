@@ -23,6 +23,36 @@ import pick from 'lodash/pick'
 import pickBy from 'lodash/pickBy'
 import { extend, pull, hasAny } from '@/utils/collections'
 
+function editableFields (layer, values) {
+  return layer.attributes
+    .filter(attr => !attr.constraints?.includes('readonly') && values[attr.name].includes('view'))
+    .map(attr => attr.name)
+}
+
+function exportableFields (layerSettings, values) {
+  return Object.keys(values).filter(field => layerSettings.export_fields?.includes(field) && values[field].includes('view'))
+}
+
+export function toggleAttributePermissionsFlag (values, flag, value, layer, layerSettings, layerPermissions) {
+  if (value) {
+    const layerQueryable = layerPermissions.includes('view') && layerPermissions.includes('query')
+    if (flag === 'edit') {
+      const layerEditable = layerQueryable && hasAny(layerPermissions, 'update', 'insert', 'delete')
+      values = layerEditable ? pick(values, editableFields(layer, values).concat('geometry')) : []
+    } else if (flag === 'export') {
+      const layerExportable = layerQueryable && layerPermissions.includes('export')
+      values = layerExportable ? pick(values, exportableFields(layerSettings, values)) : []
+    }
+    Object.values(values).forEach(v => extend(v, flag))
+  } else {
+    if (flag === 'view') {
+      Object.values(values).forEach(v => pull(v, 'view', 'edit', 'export'))
+    } else {
+      Object.values(values).forEach(v => pull(v, flag))
+    }
+  }
+}
+
 export default {
   props: {
     layer: Object,
@@ -50,23 +80,6 @@ export default {
     layerExportable () {
       return this.layerQueryable && this.layerPermissions.includes('export')
     },
-    editableFields () {
-      if (this.layerEditable) {
-        return this.layer.attributes
-          .filter(attr => !attr.constraints?.includes('readonly') && this.values[attr.name].includes('view'))
-          .map(attr => attr.name)
-      }
-      return []
-    },
-    exportableFields () {
-      if (this.layerExportable) {
-        // return this.layer.attributes
-        //   .filter(attr => this.layerSettings.export_fields?.includes(attr.name) && this.values[attr.name].includes('view'))
-        //   .map(attr => attr.name)
-        return Object.keys(this.values).filter(field => this.layerSettings.export_fields?.includes(field) && this.values[field].includes('view'))
-      }
-      return []
-    },
     attrValues () {
       return pickBy(this.values, (_, k) => k !== 'geometry')
     }
@@ -81,21 +94,7 @@ export default {
       }
     },
     toggleFlag (flag, value) {
-      let values = this.attrValues
-      if (value) {
-        if (flag === 'edit') {
-          values = pick(values, this.editableFields)
-        } else if (flag === 'export') {
-          values = pick(values, this.exportableFields)
-        }
-        Object.values(values).forEach(v => extend(v, flag))
-      } else {
-        if (flag === 'view') {
-          Object.values(values).forEach(v => pull(v, 'view', 'edit', 'export'))
-        } else {
-          Object.values(values).forEach(v => pull(v, flag))
-        }
-      }
+      toggleAttributePermissionsFlag(this.attrValues, flag, value, this.layer, this.layerSettings, this.layerPermissions)
     }
   }
 }

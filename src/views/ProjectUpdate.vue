@@ -658,9 +658,9 @@ export default {
           const layerMeta = this.projectInfo.layers[id]
           settings.layers[id] = { flags: [...layerMeta.flags] }
           settings.auth.roles?.forEach(role => {
-            role.permissions.layers[id] = ['view']
+            role.permissions.layers[id] = []
             if (layerMeta.attributes) {
-              role.permissions.attributes[id] = Object.fromEntries(layerMeta.attributes.map(a => [a.name, ['view']]))
+              role.permissions.attributes[id] = Object.fromEntries(layerMeta.attributes.map(a => [a.name, []]))
             }
           })
         })
@@ -676,7 +676,7 @@ export default {
                 settings.auth.roles?.forEach(role => {
                   removedAttrs.forEach(name => delete role.permissions.attributes[id][name])
                   newAttrs.forEach(name => {
-                    role.permissions.attributes[id][name] = ['view']
+                    role.permissions.attributes[id][name] = []
                   })
                 })
               }

@@ -377,6 +377,10 @@ export default {
   // overflow: auto;
   // flex: 1 1;
   position: relative;
+  :deep(.checkbox) {
+    --gutter: 0;
+    min-height: 0;
+  }
   table {
     min-width: 0;
     max-width: 100%;

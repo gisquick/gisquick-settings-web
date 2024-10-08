@@ -144,7 +144,7 @@ export default {
   outline: none;
   user-select: none;
   cursor: pointer;
-  margin: 6px;
+  margin: var(--gutter, 6px);
   line-height: normal;
   min-height: 22px;
   &[disabled] {
