@@ -699,7 +699,7 @@ export default {
           this.diffs.changedAttrsLayers.forEach(id => {
             const layerMeta = this.projectInfo.layers[id]
             const lset = settings.layers[id]
-            const currentAttrs = layerMeta.attributes?.map(a => a.name)
+            const currentAttrs = layerMeta.attributes?.map(a => a.name) ?? []
             // v1 - applies changes from metadata diff
             /*
             const origAttrs = this.project.meta.layers[id].attributes?.map(a => a.name)

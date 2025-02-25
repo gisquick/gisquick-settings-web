@@ -62,7 +62,7 @@ export function validateSettings (settings, meta) {
   settings.layers = pickBy(settings.layers, (_, lid) => meta.layers[lid])
   Object.entries(settings.layers).filter(([_, lset]) => lset.export_fields).forEach(([lid, lset]) => {
     const attrs = meta.layers[lid]?.attributes?.map(a => a.name)
-    pull(lset.export_fields, ...lset.export_fields.filter(name => !attrs.includes(name)))
+    pull(lset.export_fields, ...lset.export_fields.filter(name => !attrs?.includes(name)))
   })
 
   // fix fields_order layer settings

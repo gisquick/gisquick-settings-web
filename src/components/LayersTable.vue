@@ -127,7 +127,7 @@ export default {
       return item.id
     },
     groupKey (item) {
-      return item.name
+      return item.wms_name || item.name
     },
     toggleGroup (group) {
       if (this.collapsed) {
@@ -267,11 +267,12 @@ export default {
         }
         return <td class={column.tdClass}>{content}</td>
       })
+      const key = this.groupKey(group)
       const groupNode = (
-        <tr key={group.name} class={['group', {[this.selectedClass]: this.groupKey(group) === this.selected}]}>
+        <tr key={key} class={['group', {[this.selectedClass]: key === this.selected}]}>
           <td
             onClick={() => this.$emit('click:row', group)}
-            key={group.name}
+            key={key}
           >
             <div class="f-row-ac" style={paddingStyle} {...this.itemBoundRenderData(group)}>
               <v-icon
