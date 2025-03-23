@@ -5,13 +5,17 @@
         <img src="@/assets/text_logo_dark.svg"/>
       </router-link>
       <nav class="list f-grow f-col my-2">
-        <router-link class="item" :to="{name: 'users'}" exact>
+        <router-link class="item" :to="{name: 'users'}">
           <v-icon name="users"/>
           <span>Users</span>
         </router-link>
         <router-link class="item" :to="{name: 'emails'}">
           <v-icon name="mail"/>
           <span>Emails</span>
+        </router-link>
+        <router-link class="item" :to="{name: 'notifications'}">
+          <v-icon name="notification"/>
+          <span>Notifications</span>
         </router-link>
         <a class="item" href="/admin/grafana/">
           <!-- <v-icon name="chart"/> -->

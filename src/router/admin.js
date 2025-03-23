@@ -4,18 +4,25 @@ import VueRouter from 'vue-router'
 import UserView from '@/views/admin/UserView.vue'
 import UsersView from '@/views/admin/UsersView.vue'
 import EmailsView from '@/views/admin/EmailsView.vue'
+import NotificationsView from '@/views/admin/NotificationsView.vue'
+import QgisServerManager from '@/views/admin/QgisServerManager.vue'
 
 Vue.use(VueRouter)
 
 const routes = [
   {
     path: '/',
+    redirect: { name: "users" }
+  },
+  {
+    path: '/users',
     name: 'users',
-    component: UsersView
+    component: UsersView,
   },
   {
     path: '/users/:username',
     name: 'user-detail',
+    // alias: ["/users"],
     component: UserView,
     props: true
   },
@@ -24,6 +31,16 @@ const routes = [
     name: 'emails',
     component: EmailsView
   },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: NotificationsView
+  },
+  {
+    path: '/qgis-servers',
+    name: 'qgis-servers',
+    component: QgisServerManager
+  }
   // {
   //   path: '/about',
   //   name: 'About',
