@@ -55,11 +55,11 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/ws": {
         ws: true,
-        target: 'ws://localhost'
+        target: process.env.WS_PROXY_TARGET || 'ws://localhost'
         // target: 'wss://dev.gisquick.org'
       },
       "/api": {
-        target: 'http://localhost'
+        target: process.env.API_PROXY_TARGET || 'http://localhost'
         // target: 'https://dev.gisquick.org',
         // target: 'https://portal.mapotip.cz:8443/',
         // changeOrigin: true,

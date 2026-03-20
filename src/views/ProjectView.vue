@@ -90,6 +90,7 @@
           <router-link class="m-2" :to="{name: 'layers'}">Layers</router-link>
           <router-link class="m-2" :to="{name: 'topics'}">Topics</router-link>
           <router-link class="m-2" :to="{name: 'search'}">Search</router-link>
+          <router-link class="m-2" :to="{name: 'processing'}">Processing</router-link>
           <router-link class="m-2" :to="{name: 'access'}">Permissions</router-link>
           <div class="v-separator"/>
 
