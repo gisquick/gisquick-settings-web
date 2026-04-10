@@ -35,7 +35,8 @@
       <process-block
         v-for="(proc, pi) in service._processes"
         :key="pi"
-        :proc="proc"
+        :value="proc"
+        @input="$set(service._processes, pi, $event)"
         :initially-expanded="pi === newProcessIndex"
         class="mb-3"
         @remove="removeProcess(pi)"
@@ -65,7 +66,7 @@ import ProcessBlock from './ProcessBlock.vue'
 import { processToEdit } from '@/utils/processing'
 
 const SERVICE_TYPES = [
-  { text: 'OGC API Processes', value: 'ogc_api_processes' },
+  { text: 'OGC API Processes', value: 'ogcapi-processes' },
   { text: 'WPS', value: 'wps' }
 ]
 

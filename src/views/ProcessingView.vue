@@ -7,7 +7,7 @@
     <template v-else>
       <services-list
         :services="services"
-        :selected-index="selectedIndex"
+        :selected-id="selectedId"
         :is-new="isNew"
         @select="selectService"
         @add="startAdd"
@@ -47,7 +47,7 @@ export default {
     return {
       fetchTask: TaskState(),
       services: [],
-      selectedIndex: null,
+      selectedId: null,
       editingService: null,
       isNew: false,
       saveTask: TaskState(),
@@ -67,15 +67,15 @@ export default {
         this.services = resp.data.services
       }
     },
-    selectService (index) {
-      this.selectedIndex = index
+    selectService (id) {
+      this.selectedId = id
       this.isNew = false
-      this.editingService = serviceToEdit(this.services[index])
+      this.editingService = serviceToEdit(this.services.find(s => s.id === id))
     },
     startAdd () {
-      this.selectedIndex = null
+      this.selectedId = null
       this.isNew = true
-      this.editingService = { url: '', type: 'ogc_api_processes', name: '', _processes: [] }
+      this.editingService = { url: '', type: 'ogcapi-processes', name: '', _processes: [] }
     },
     cancelAdd () {
       this.isNew = false
@@ -85,31 +85,32 @@ export default {
       const body = editToService(this.editingService)
       const task = this.isNew
         ? this.$http.post(`/api/project/processing/${this.project.name}`, body)
-        : this.$http.put(`/api/project/processing/${this.project.name}/${this.selectedIndex}`, body)
+        : this.$http.put(`/api/project/processing/${this.project.name}/${this.selectedId}`, body)
       const resp = await watchTask(task, this.saveTask)
       if (this.saveTask.success) {
+        const oldIds = new Set(this.services.map(s => s.id))
         this.services = resp.data.services
         if (this.isNew) {
-          this.selectedIndex = this.services.length - 1
+          const added = this.services.find(s => !oldIds.has(s.id))
+          if (added) this.selectedId = added.id
           this.isNew = false
+          this.editingService = serviceToEdit(added || this.services[0])
         }
         this.$notify.success('Processing service saved')
       } else {
         this.$notify.error('Failed to save processing service')
       }
     },
-    async deleteService (index) {
+    async deleteService (id) {
       const resp = await watchTask(
-        this.$http.delete(`/api/project/processing/${this.project.name}/${index}`),
+        this.$http.delete(`/api/project/processing/${this.project.name}/${id}`),
         this.deleteTask
       )
       if (this.deleteTask.success) {
         this.services = resp.data.services
-        if (this.selectedIndex === index) {
-          this.selectedIndex = null
+        if (this.selectedId === id) {
+          this.selectedId = null
           this.editingService = null
-        } else if (this.selectedIndex > index) {
-          this.selectedIndex--
         }
         this.$notify.success('Processing service removed')
       } else {

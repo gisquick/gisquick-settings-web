@@ -9,8 +9,8 @@
       <v-text-field
         class="process-id-field"
         placeholder="process-id"
-        :value="proc._key"
-        @input="proc._key = $event"
+        :value="localProc._key"
+        @input="localProc._key = $event"
         @click.stop
       />
       <div class="f-grow"/>
@@ -29,20 +29,20 @@
             class="filled f-grow"
             label="Execute URL"
             placeholder="Default: {url}/processes/{id}/execution"
-            v-model="proc.remote.execute_url"
+            v-model="localProc.remote.execute_url"
           />
           <v-text-field
             class="filled"
             label="Method"
             placeholder="POST"
-            v-model="proc.remote.method"
+            v-model="localProc.remote.method"
           />
           <v-select
             class="filled"
             label="Type override"
             :items="remoteTypeItems"
-            :value="proc.remote.type || null"
-            @input="proc.remote.type = $event || ''"
+            :value="localProc.remote.type || null"
+            @input="localProc.remote.type = $event || ''"
           />
         </div>
         <div class="f-row">
@@ -50,127 +50,29 @@
             class="filled f-grow"
             label="Status URL"
             placeholder="Optional (async)"
-            v-model="proc.remote.status_url"
+            v-model="localProc.remote.status_url"
           />
           <v-text-field
             class="filled f-grow"
             label="Result URL"
             placeholder="Optional (async)"
-            v-model="proc.remote.result_url"
+            v-model="localProc.remote.result_url"
           />
         </div>
         <div class="f-row-ac mb-1 mt-1">
           <span class="field-label f-grow">Headers</span>
-          <v-btn class="icon small" @click="proc.remote.headers.push({ key: '', value: '' })">
+          <v-btn class="icon small" @click="localProc.remote.headers.push({ key: '', value: '' })">
             <v-icon name="plus" size="14"/>
           </v-btn>
         </div>
         <div
-          v-for="(h, hi) in proc.remote.headers"
+          v-for="(h, hi) in localProc.remote.headers"
           :key="'h' + hi"
           class="f-row f-align-end mb-1"
         >
           <v-text-field class="filled" label="Key" v-model="h.key"/>
           <v-text-field class="filled f-grow" label="Value" v-model="h.value"/>
-          <v-btn class="icon small" @click="proc.remote.headers.splice(hi, 1)">
-            <v-icon name="delete_forever" size="14"/>
-          </v-btn>
-        </div>
-
-        <!-- Execution -->
-        <div class="subsection-title mt-3">Execution</div>
-        <div class="f-row f-align-end">
-          <v-checkbox label="Async" v-model="proc.execution.async" class="mr-4"/>
-          <v-text-field
-            class="filled"
-            label="Poll interval (s)"
-            type="number"
-            v-model="proc.execution.poll_interval_seconds"
-          />
-          <v-text-field
-            class="filled"
-            label="Timeout (s)"
-            type="number"
-            v-model="proc.execution.timeout_seconds"
-          />
-        </div>
-
-        <!-- Project inputs -->
-        <div class="f-row-ac mt-3 mb-1">
-          <span class="subsection-title f-grow">Project Inputs</span>
-          <v-btn class="icon small" @click="addInput">
-            <v-icon name="plus" size="14"/>
-          </v-btn>
-        </div>
-        <div
-          v-for="(inp, ii) in proc.project_inputs"
-          :key="'inp' + ii"
-          class="input-block mb-2 px-2 py-2"
-        >
-          <div class="f-row f-align-end mb-1">
-            <v-text-field class="filled" label="Input ID" v-model="inp.input_id"/>
-            <v-select
-              class="filled"
-              label="Source"
-              :items="inputTypes"
-              v-model="inp._type"
-            />
-            <v-btn class="icon small" @click="proc.project_inputs.splice(ii, 1)">
-              <v-icon name="delete_forever" size="14"/>
-            </v-btn>
-          </div>
-          <template v-if="inp._type === 'layer'">
-            <v-text-field class="filled" label="Layer name/ID" v-model="inp.layer"/>
-            <div class="f-row">
-              <v-text-field
-                class="filled"
-                label="Selection mode"
-                placeholder="expression"
-                v-model="inp.selection_mode"
-              />
-              <v-text-field
-                class="filled f-grow"
-                label="Selection expression"
-                placeholder='e.g. "active" = 1'
-                v-model="inp.selection_expression"
-              />
-            </div>
-            <div class="f-row f-align-end">
-              <v-text-field
-                class="filled"
-                label="Encoding format"
-                placeholder="geojson"
-                v-model="inp.encoding_format"
-              />
-              <v-checkbox label="Geometry only" v-model="inp.encoding_geometry_only"/>
-            </div>
-          </template>
-          <template v-else>
-            <v-text-field
-              class="filled f-grow"
-              label="Value (JSON literal)"
-              placeholder='e.g. 7 or "hello" or [1,2,3]'
-              v-model="inp.value_str"
-            />
-          </template>
-        </div>
-
-        <!-- Payload bindings -->
-        <div class="f-row-ac mt-3 mb-1">
-          <span class="subsection-title f-grow">Payload Bindings</span>
-          <v-btn class="icon small" @click="proc.payload_bindings.push({ key: '', value: '' })">
-            <v-icon name="plus" size="14"/>
-          </v-btn>
-        </div>
-        <div
-          v-for="(b, bi) in proc.payload_bindings"
-          :key="'b' + bi"
-          class="f-row f-align-end mb-1"
-        >
-          <v-text-field class="filled" label="Input ID" v-model="b.key"/>
-          <v-icon name="arrow-right" size="14" class="mx-1"/>
-          <v-text-field class="filled f-grow" label="Payload path" v-model="b.value"/>
-          <v-btn class="icon small" @click="proc.payload_bindings.splice(bi, 1)">
+          <v-btn class="icon small" @click="localProc.remote.headers.splice(hi, 1)">
             <v-icon name="delete_forever" size="14"/>
           </v-btn>
         </div>
@@ -184,7 +86,7 @@
 export default {
   name: 'ProcessingProcessBlock',
   props: {
-    proc: {
+    value: {
       type: Object,
       required: true
     },
@@ -196,31 +98,22 @@ export default {
   data () {
     return {
       expanded: this.initiallyExpanded,
+      localProc: JSON.parse(JSON.stringify(this.value)),
       remoteTypeItems: [
         { text: '(Inherit from service)', value: null },
-        { text: 'OGC API Processes', value: 'ogc_api_processes' },
+        { text: 'OGC API Processes', value: 'ogcapi-processes' },
         { text: 'WPS', value: 'wps' }
       ],
-      inputTypes: [
-        { text: 'Layer', value: 'layer' },
-        { text: 'Scalar value', value: 'value' }
-      ]
     }
   },
-  methods: {
-    addInput () {
-      this.proc.project_inputs.push({
-        input_id: '',
-        _type: 'layer',
-        layer: '',
-        selection_mode: '',
-        selection_expression: '',
-        encoding_format: '',
-        encoding_geometry_only: false,
-        value_str: ''
-      })
+  watch: {
+    localProc: {
+      deep: true,
+      handler (val) {
+        this.$emit('input', val)
+      }
     }
-  }
+  },
 }
 </script>
 

@@ -22,26 +22,6 @@ export function processToEdit (id, cfg) {
       result_url: cfg.remote?.result_url || '',
       headers: objToKvPairs(cfg.remote?.headers || {})
     },
-    execution: {
-      async: cfg.execution?.async || false,
-      poll_interval_seconds: cfg.execution?.poll_interval_seconds != null
-        ? String(cfg.execution.poll_interval_seconds)
-        : '',
-      timeout_seconds: cfg.execution?.timeout_seconds != null
-        ? String(cfg.execution.timeout_seconds)
-        : ''
-    },
-    project_inputs: (cfg.project_inputs || []).map(inp => ({
-      input_id: inp.input_id || '',
-      _type: inp.layer !== undefined ? 'layer' : 'value',
-      layer: inp.layer || '',
-      selection_mode: inp.selection?.mode || '',
-      selection_expression: inp.selection?.expression || '',
-      encoding_format: inp.encoding?.format || '',
-      encoding_geometry_only: inp.encoding?.geometry_only || false,
-      value_str: inp.value !== undefined ? JSON.stringify(inp.value) : ''
-    })),
-    payload_bindings: objToKvPairs(cfg.payload_bindings || {})
   }
 }
 
@@ -58,51 +38,15 @@ export function editToProcess (proc) {
   if (Object.keys(headers).length) remote.headers = headers
   if (Object.keys(remote).length) result.remote = remote
 
-  const execution = { async: proc.execution.async }
-  const poll = proc.execution.poll_interval_seconds
-  if (poll !== '' && poll != null) execution.poll_interval_seconds = Number(poll)
-  const timeout = proc.execution.timeout_seconds
-  if (timeout !== '' && timeout != null) execution.timeout_seconds = Number(timeout)
-  result.execution = execution
-
-  const project_inputs = proc.project_inputs
-    .filter(inp => inp.input_id)
-    .map(inp => {
-      const item = { input_id: inp.input_id }
-      if (inp._type === 'layer') {
-        item.layer = inp.layer
-        if (inp.selection_mode || inp.selection_expression) {
-          item.selection = {}
-          if (inp.selection_mode) item.selection.mode = inp.selection_mode
-          if (inp.selection_expression) item.selection.expression = inp.selection_expression
-        }
-        if (inp.encoding_format || inp.encoding_geometry_only) {
-          item.encoding = {}
-          if (inp.encoding_format) item.encoding.format = inp.encoding_format
-          item.encoding.geometry_only = inp.encoding_geometry_only
-        }
-      } else {
-        try {
-          item.value = JSON.parse(inp.value_str)
-        } catch {
-          item.value = inp.value_str
-        }
-      }
-      return item
-    })
-  if (project_inputs.length) result.project_inputs = project_inputs
-
-  const payload_bindings = kvPairsToObj(proc.payload_bindings)
-  if (Object.keys(payload_bindings).length) result.payload_bindings = payload_bindings
-
   return result
 }
 
 export function serviceToEdit (svc) {
   const _processes = Object.entries(svc.processes || {}).map(([id, cfg]) => processToEdit(id, cfg))
   return {
+    id: svc.id,
     url: svc.url || '',
-    type: svc.type || 'ogc_api_processes',
+    type: svc.type || 'ogcapi-processes',
     name: svc.name || '',
     _processes
   }

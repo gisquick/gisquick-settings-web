@@ -11,14 +11,14 @@
         No services configured
       </div>
       <div
-        v-for="(svc, i) in services"
-        :key="i"
+        v-for="svc in services"
+        :key="svc.id"
         class="service-item f-row-ac px-2"
-        :class="{ active: selectedIndex === i && !isNew }"
-        @click="$emit('select', i)"
+        :class="{ active: selectedId === svc.id && !isNew }"
+        @click="$emit('select', svc.id)"
       >
         <span class="f-grow item-label" v-text="svc.name || svc.url || '(unnamed)'"/>
-        <v-btn class="icon small" @click.stop="$emit('delete', i)">
+        <v-btn class="icon small" @click.stop="$emit('delete', svc.id)">
           <v-icon name="delete_forever" size="16"/>
         </v-btn>
       </div>
@@ -34,8 +34,8 @@ export default {
       type: Array,
       default: () => []
     },
-    selectedIndex: {
-      type: Number,
+    selectedId: {
+      type: String,
       default: null
     },
     isNew: {
