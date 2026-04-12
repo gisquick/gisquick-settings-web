@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'mpa-container/**'
+      - '.github/**'
 
 jobs:
   build-mpa-base:
