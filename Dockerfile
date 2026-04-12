@@ -1,3 +1,5 @@
+ARG MPA_BASE_IMAGE=gisquick/mpa-base
+
 FROM node:16-alpine AS webapp
 
 WORKDIR /webapp/
@@ -7,7 +9,6 @@ COPY . .
 RUN npm run build
 
 
-ARG MPA_BASE_IMAGE=gisquick/mpa-base
 FROM ${MPA_BASE_IMAGE}
 
 COPY --from=webapp /webapp/dist/ /var/www
