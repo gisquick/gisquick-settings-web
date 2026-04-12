@@ -3,9 +3,19 @@ name: Build and push Docker image
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'mpa-container/**'
+  workflow_run:
+    workflows: ["Build and push mpa-base"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   build-and-push:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,6 +40,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            MPA_BASE_IMAGE=ghcr.io/${{ github.repository }}/mpa-base:latest
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_short }}
             ghcr.io/${{ github.repository }}:latest
