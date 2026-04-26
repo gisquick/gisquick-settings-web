@@ -23,9 +23,28 @@
         v-model="service.name"
       />
 
-      <!-- Per-process proxy config -->
+      <!-- Service-level headers -->
+      <div class="f-row-ac mt-4 mb-1">
+        <span class="section-title f-grow">Headers</span>
+        <v-btn class="icon small" @click="service._headers.push({ key: '', value: '' })">
+          <v-icon name="plus" size="14"/>
+        </v-btn>
+      </div>
+      <div
+        v-for="(h, hi) in service._headers"
+        :key="'h' + hi"
+        class="f-row f-align-end mb-1"
+      >
+        <v-text-field class="filled" label="Key" v-model="h.key"/>
+        <v-text-field class="filled f-grow" label="Value" v-model="h.value"/>
+        <v-btn class="icon small" @click="service._headers.splice(hi, 1)">
+          <v-icon name="delete_forever" size="14"/>
+        </v-btn>
+      </div>
+
+      <!-- Processes -->
       <div class="f-row-ac mt-4 mb-2">
-        <span class="section-title f-grow">Per-Process Proxy Config</span>
+        <span class="section-title f-grow">Processes</span>
         <v-btn
           v-if="!isNew && service.type === 'ogcapi-processes'"
           class="small n-case"
@@ -41,7 +60,6 @@
         v-for="(proc, pi) in service._processes"
         :key="pi"
         :value="proc"
-        @input="$set(service._processes, pi, $event)"
         class="mb-3"
         @remove="removeProcess(pi)"
       />

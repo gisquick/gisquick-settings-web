@@ -1,18 +1,12 @@
 <template>
   <div class="process-block">
-    <div class="process-header f-row-ac px-2" @click="expanded = !expanded">
+    <div class="process-header f-row-ac px-2" :class="{ expanded }" @click="expanded = !expanded">
       <v-icon
         :name="expanded ? 'arrow-down' : 'arrow-right'"
         size="14"
         class="mr-2 toggle-icon"
       />
-      <v-text-field
-        class="process-id-field"
-        placeholder="process-id"
-        :value="localProc._key"
-        @input="localProc._key = $event"
-        @click.stop
-      />
+      <span class="process-id">{{ value._key }}</span>
       <div class="f-grow"/>
       <v-btn class="icon small" @click.stop="$emit('remove')">
         <v-icon name="delete_forever" size="16"/>
@@ -20,63 +14,27 @@
     </div>
 
     <v-collapsible>
-      <div v-if="expanded" class="process-body px-3 py-2">
-
-        <!-- Remote -->
-        <div class="subsection-title">Remote</div>
-        <div class="f-row">
-          <v-text-field
-            class="filled f-grow"
-            label="Execute URL"
-            placeholder="Default: {url}/processes/{id}/execution"
-            v-model="localProc.remote.execute_url"
-          />
-          <v-text-field
-            class="filled"
-            label="Method"
-            placeholder="POST"
-            v-model="localProc.remote.method"
-          />
-          <v-select
-            class="filled"
-            label="Type override"
-            :items="remoteTypeItems"
-            :value="localProc.remote.type || null"
-            @input="localProc.remote.type = $event || ''"
-          />
-        </div>
-        <div class="f-row">
-          <v-text-field
-            class="filled f-grow"
-            label="Status URL"
-            placeholder="Optional (async)"
-            v-model="localProc.remote.status_url"
-          />
-          <v-text-field
-            class="filled f-grow"
-            label="Result URL"
-            placeholder="Optional (async)"
-            v-model="localProc.remote.result_url"
-          />
-        </div>
-        <div class="f-row-ac mb-1 mt-1">
-          <span class="field-label f-grow">Headers</span>
-          <v-btn class="icon small" @click="localProc.remote.headers.push({ key: '', value: '' })">
-            <v-icon name="plus" size="14"/>
-          </v-btn>
-        </div>
-        <div
-          v-for="(h, hi) in localProc.remote.headers"
-          :key="'h' + hi"
-          class="f-row f-align-end mb-1"
-        >
-          <v-text-field class="filled" label="Key" v-model="h.key"/>
-          <v-text-field class="filled f-grow" label="Value" v-model="h.value"/>
-          <v-btn class="icon small" @click="localProc.remote.headers.splice(hi, 1)">
-            <v-icon name="delete_forever" size="14"/>
-          </v-btn>
-        </div>
-
+      <div v-if="expanded" class="process-body">
+        <template v-if="desc">
+          <div v-if="desc.title && desc.title !== value._key" class="proc-title">
+            {{ desc.title }}
+          </div>
+          <div v-if="desc.description" class="proc-description">
+            {{ desc.description }}
+          </div>
+          <template v-if="inputs.length">
+            <div class="subsection-title">Inputs</div>
+            <div
+              v-for="inp in inputs"
+              :key="inp.name"
+              class="proc-input"
+            >
+              <span class="inp-name">{{ inp.name }}</span>
+              <span v-if="inp.description" class="inp-desc">{{ inp.description }}</span>
+            </div>
+          </template>
+        </template>
+        <div v-else class="proc-description no-desc">No description available.</div>
       </div>
     </v-collapsible>
   </div>
@@ -97,23 +55,22 @@ export default {
   },
   data () {
     return {
-      expanded: this.initiallyExpanded,
-      localProc: JSON.parse(JSON.stringify(this.value)),
-      remoteTypeItems: [
-        { text: '(Inherit from service)', value: null },
-        { text: 'OGC API Processes', value: 'ogcapi-processes' },
-        { text: 'WPS', value: 'wps' }
-      ],
+      expanded: this.initiallyExpanded
     }
   },
-  watch: {
-    localProc: {
-      deep: true,
-      handler (val) {
-        this.$emit('input', val)
-      }
+  computed: {
+    desc () {
+      return this.value.description || null
+    },
+    inputs () {
+      const inp = this.desc && this.desc.inputs
+      if (!inp) return []
+      return Object.entries(inp).map(([name, def]) => ({
+        name,
+        description: def.description || def.title || ''
+      }))
     }
-  },
+  }
 }
 </script>
 
@@ -125,13 +82,20 @@ export default {
 }
 
 .process-header {
-  height: 38px;
+  height: 42px;
   background-color: #eee;
   cursor: pointer;
   user-select: none;
-  border-bottom: 1px solid #ddd;
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s;
+
   &:hover {
     background-color: #e4e4e4;
+  }
+
+  &.expanded {
+    border-left-color: var(--color-primary);
+    border-bottom: 1px solid #ddd;
   }
 }
 
@@ -139,38 +103,72 @@ export default {
   flex-shrink: 0;
 }
 
-.process-id-field {
+.process-id {
   font-size: 13.5px;
   font-weight: 500;
-  ::v-deep .input-field {
-    border: none;
-    background: transparent;
-    font-weight: 500;
-  }
 }
 
 .process-body {
+  padding: 14px 16px;
   background-color: #fafafa;
+}
+
+.proc-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.proc-description {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  max-width: 640px;
+
+  &.no-desc {
+    font-style: italic;
+    color: #aaa;
+    margin-bottom: 0;
+  }
 }
 
 .subsection-title {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #666;
-  margin-bottom: 4px;
+  letter-spacing: 0.07em;
+  color: rgba(46, 108, 158, 0.85);
+  margin-bottom: 8px;
 }
 
-.field-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #666;
+.proc-input {
+  padding: 5px 0 5px 10px;
+  border-left: 2px solid #e0e0e0;
+  margin-bottom: 6px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
-.input-block {
-  border: 1px solid #e0e0e0;
+.inp-name {
+  display: inline-block;
+  background: rgba(46, 108, 158, 0.09);
+  color: rgb(46, 108, 158);
   border-radius: 3px;
-  background-color: #fff;
+  padding: 1px 5px;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.inp-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
 }
 </style>

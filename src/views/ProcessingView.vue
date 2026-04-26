@@ -78,7 +78,7 @@ export default {
     startAdd () {
       this.selectedId = null
       this.isNew = true
-      this.editingService = { url: '', type: 'ogcapi-processes', name: '', _processes: [] }
+      this.editingService = { url: '', type: 'ogcapi-processes', name: '', _headers: [], _processes: [] }
     },
     cancelAdd () {
       this.isNew = false
