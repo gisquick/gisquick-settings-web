@@ -19,8 +19,10 @@
         :service="editingService"
         :is-new="isNew"
         :saving="saveTask.pending"
+        :syncing="syncTask.pending"
         @save="saveService"
         @cancel="cancelAdd"
+        @sync="syncService"
       />
 
       <div v-else class="f-col-ac f-grow m-4">
@@ -51,6 +53,7 @@ export default {
       editingService: null,
       isNew: false,
       saveTask: TaskState(),
+      syncTask: TaskState(),
       deleteTask: TaskState()
     }
   },
@@ -99,6 +102,19 @@ export default {
         this.$notify.success('Processing service saved')
       } else {
         this.$notify.error('Failed to save processing service')
+      }
+    },
+    async syncService () {
+      const resp = await watchTask(
+        this.$http.post(`/api/project/processing/${this.project.name}/${this.selectedId}/sync`),
+        this.syncTask
+      )
+      if (this.syncTask.success) {
+        this.services = resp.data.services
+        this.editingService = serviceToEdit(this.services.find(s => s.id === this.selectedId))
+        this.$notify.success('Processes refreshed from remote')
+      } else {
+        this.$notify.error('Failed to refresh processes from remote')
       }
     },
     async deleteService (id) {

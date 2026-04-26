@@ -26,9 +26,14 @@
       <!-- Per-process proxy config -->
       <div class="f-row-ac mt-4 mb-2">
         <span class="section-title f-grow">Per-Process Proxy Config</span>
-        <v-btn class="small n-case" color="green" @click="addProcess">
-          <v-icon name="plus" class="mr-1"/>
-          <span>Add process</span>
+        <v-btn
+          v-if="!isNew && service.type === 'ogcapi-processes'"
+          class="small n-case"
+          :disabled="syncing"
+          @click="$emit('sync')"
+        >
+          <v-icon name="reload" class="mr-1"/>
+          <span>{{ syncing ? 'Refreshing…' : 'Refresh processes' }}</span>
         </v-btn>
       </div>
 
@@ -37,7 +42,6 @@
         :key="pi"
         :value="proc"
         @input="$set(service._processes, pi, $event)"
-        :initially-expanded="pi === newProcessIndex"
         class="mb-3"
         @remove="removeProcess(pi)"
       />
@@ -63,7 +67,6 @@
 
 <script>
 import ProcessBlock from './ProcessBlock.vue'
-import { processToEdit } from '@/utils/processing'
 
 const SERVICE_TYPES = [
   { text: 'OGC API Processes', value: 'ogcapi-processes' },
@@ -85,22 +88,20 @@ export default {
     saving: {
       type: Boolean,
       default: false
+    },
+    syncing: {
+      type: Boolean,
+      default: false
     }
   },
   data () {
     return {
-      serviceTypes: SERVICE_TYPES,
-      newProcessIndex: null
+      serviceTypes: SERVICE_TYPES
     }
   },
   methods: {
-    addProcess () {
-      this.service._processes.push(processToEdit('', {}))
-      this.newProcessIndex = this.service._processes.length - 1
-    },
     removeProcess (index) {
       this.service._processes.splice(index, 1)
-      this.newProcessIndex = null
     }
   }
 }
