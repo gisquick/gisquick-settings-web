@@ -46,7 +46,7 @@
       <div class="f-row-ac mt-4 mb-2">
         <span class="section-title f-grow">Processes</span>
         <v-btn
-          v-if="!isNew && service.type === 'ogcapi-processes'"
+          v-if="!isNew"
           class="small n-case"
           :disabled="syncing"
           @click="$emit('sync')"
