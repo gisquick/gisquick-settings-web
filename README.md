@@ -1,4 +1,6 @@
-# gisquick-settings-web
+# Gisquick Web Interface
+
+Web interface for publishing projects and configuring them, as well as a web-based admin interface for user management.
 
 ## Project setup
 ```
