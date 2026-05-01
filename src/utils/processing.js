@@ -20,7 +20,10 @@ export function processToEdit (id, cfg) {
 }
 
 export function serviceToEdit (svc) {
-  const _processes = Object.entries(svc.processes || {}).map(([id, cfg]) => processToEdit(id, cfg))
+  const order = svc.processOrder || Object.keys(svc.processes || {})
+  const _processes = order
+    .filter(id => svc.processes && svc.processes[id])
+    .map(id => processToEdit(id, svc.processes[id]))
   return {
     id: svc.id,
     url: svc.url || '',
