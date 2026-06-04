@@ -18,11 +18,14 @@
           Failed to change the password!
         </span>
       </div>
+      <!-- hidden filed to prevent browser's autofill of the password -->
+      <input name="name" type="hidden"/>
       <v-text-field
         :label="tr.CurrentPassword"
         v-model="currentPassword"
         class="filled"
         :type="currentPasswordVisible ? 'text' : 'password'"
+        autocomplete="off"
       >
         <v-btn
           slot="append"
@@ -38,6 +41,7 @@
         class="filled"
         v-model="newPassword1"
         :type="newPasswordVisible ? 'text' : 'password'"
+        autocomplete="new-password"
       >
         <v-btn
           slot="append"
@@ -53,6 +57,7 @@
         class="filled"
         v-model="newPassword2"
         :type="newPasswordVisible ? 'text' : 'password'"
+        autocomplete="new-password"
       />
       <div class="actions f-row-ac f-justify-end">
         <v-btn color="dark" @click="close">
