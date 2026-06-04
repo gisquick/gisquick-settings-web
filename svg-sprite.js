@@ -93,6 +93,8 @@ module.exports = (config) => { // allows to run this script as node command
   }
 }
 
+// Create svg sprite from svg icons folder(s)
+// Example: node svg-sprite.js icons/text-editor src/assets/text-editor.svg
 async function main () {
   const paths = process.argv.slice(2)
   const dest = paths.pop()
@@ -107,3 +109,20 @@ async function main () {
 if (require.main === module) {
   main()
 }
+
+/*
+// Dynamic import of svg sprite icons
+import icons from '@/assets/text-editor.svg?raw'
+
+function injectIcons () {
+  if (!document.getElementById('text-editor-sprite')) {
+    const placeholder = document.createElement('div')
+    placeholder.innerHTML = icons
+    const node = placeholder.firstElementChild
+    node.setAttribute('id', 'text-editor-sprite')
+    document.body.insertAdjacentElement('afterbegin', node)
+  }
+  // document.body.insertAdjacentHTML('afterbegin', icons)
+}
+injectIcons()
+*/
