@@ -182,6 +182,7 @@ export default {
     outline: none;
     flex-grow: 1;
     overflow: auto;
+    background-color: var(--fill-color, green);
   }
   &:not(.flat) {
     ::v-deep label {

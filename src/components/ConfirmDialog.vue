@@ -46,6 +46,7 @@ export default {
 .content {
   font-size: 17px;
   padding: 10px 12px;
+  max-width: 540px;
 }
 .actions {
   .btn {

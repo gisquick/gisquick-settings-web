@@ -217,7 +217,7 @@ export default {
         return
       }
       this.focused = false
-      if (this.$refs.inputEl) {
+      if (this.$refs.inputEl && !e.target.files) {
         this.$refs.inputEl.value = this.inputValue
       }
     },
@@ -231,6 +231,10 @@ export default {
       this.lastCaretPosition = e.target.selectionStart
     },
     onInput (e) {
+      if (e.target.files) {
+        this.$emit('input', e.target.files)
+        return
+      }
       let value = e.target.value
       if (this.cleanFn) {
         const cleaned = this.cleanFn(value)
@@ -296,12 +300,15 @@ export default {
   //     -webkit-appearance: none;
   //   }
   // }
+  textarea {
+    line-height: 1.5;
+  }
   textarea[noresize] {
     resize: none;
     min-height: 100%;
   }
   input[type="file"] {
-    opacity: 0;
+    // opacity: 0;
   }
 }
 </style>
