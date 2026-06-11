@@ -363,7 +363,9 @@ import WidgetSettings from '@/components/WidgetSettings.vue'
 import FormattersEditor, { createFormatter } from '@/components/FormattersEditor.vue'
 import RelationForm from '@/components/RelationForm.vue'
 import VImage from '@/components/image/Image.vue'
-import GenericInfoPanel, { DateWidget, ValueMapWidget, BoolWidget, UrlWidget, createTableImageWidget, createMediaFileTableWidget, mediaUrlFormat  } from '@/components/GenericInfopanel.vue'
+// import GenericInfoPanel, { DateWidget, ValueMapWidget, BoolWidget, UrlWidget, createImageTableWidget, createMediaFileTableWidget, mediaUrlFormat  } from '@/components/GenericInfopanel.vue'
+import GenericInfoPanel, { DateWidget, ValueMapWidget, BoolWidget, UrlWidget, createImageTableWidget, createMediaFileTableWidget, mediaUrlFormat  } from '@/components/MapGenericInfopanel.vue'
+import HtmlText from '@/components/attributes-table/HtmlText.vue'
 import { layerFeaturesQuery, formatFeatures } from '@/map/featureinfo'
 import { excludedFieldsSet } from '@/adapters/attributes'
 import { externalComponent } from '@/components-loader'
@@ -422,9 +424,9 @@ function layerAppConfig (layerId, meta, settings, cache = {}) {
       const lm = Object.values(meta.layers).find(l => l.name === r.referencing_layer)
       return {
         ...r,
-        referencing_layer: cache[lm.id] || layerAppConfig(lm.id, meta, settings, cache)
+        referencing_layer: lm && (cache[lm.id] || layerAppConfig(lm.id, meta, settings, cache))
       }
-    })
+    }).filter(r => r.referencing_layer)
   }
   if (layerSettings.fields_order) {
     layer.info_panel_fields = layerSettings.fields_order.infopanel || layerSettings.fields_order.global
@@ -614,7 +616,6 @@ export default {
       }))
     },
     layer () {
-      console.log('creating layer app config')
       return layerAppConfig(this.layerId, this.project.meta, this.settings)
     },
     selectedFeature () {
@@ -629,9 +630,11 @@ export default {
     },
     infopanelProject () { // TODO: sync with the map app
       return {
-        name: this.project.name,
-        ows_project: this.project.name,
-        ows_url:  `/api/project/ows/${this.project.name}`,
+        config: {
+          name: this.project.name,
+          ows_project: this.project.name,
+          ows_url:  `/api/project/ows/${this.project.name}`
+        },
         formatters: this.layerFormatters
       }
     },
@@ -685,7 +688,7 @@ export default {
         fields = this.defaultAttributesOrder
       }
       const excluded = this.excludedTableFields
-      const attributes = fields.filter(n => !excluded.has(n)).map(n => this.attrsMap[n]).filter(a => a)
+      const attributes = fields.filter(n => !excluded.has(n)).map(n => this.attrsMap[n]).filter(a => a && a.widget !== 'Hidden' && this.attrsSettings[a.name]?.widget !== 'Hidden')
       return attributes.map(attr => ({
         label: attr.alias || attr.name,
         type: attr.type.toLowerCase(),
@@ -717,13 +720,15 @@ export default {
         } else if (attr.widget === 'Hyperlink') {
           widget = UrlWidget
         } else if (attr.widget === 'Image') {
-          widget = createTableImageWidget()
+          widget = createImageTableWidget()
         } else if (attr.widget === 'MediaFile') {
           widget = createMediaFileTableWidget(mediaUrlFormat(this.project.name, this.layer, attr))
         } else if (attr.type === 'date') { // and also attr.widget === 'DateTime' ?
           widget = DateWidget
         } else if (attr.type === 'bool') {
           widget = BoolWidget
+        } else if (attr.config?.UseHtml) {
+          widget = HtmlText
         }
         if (widget) {
           slots[attr.name] = { component: widget, attribute: attr }
@@ -878,7 +883,7 @@ export default {
     async fetchFeatures (page = 1) {
       const mapProjection = this.project.meta.projection.code
       // fetch only attributes, without geometry
-      const query = layerFeaturesQuery(this.layer, null, null, this.defaultAttributesOrder)
+      const query = layerFeaturesQuery(this.layer, { propertyNames: this.defaultAttributesOrder })
 
       const baseParams = {
         VERSION: '1.1.0',

@@ -21,6 +21,7 @@ import VTabs from './ui/Tabs.vue'
 import VTextField from './ui/TextField.vue'
 import VTooltip from './ui/Tooltip.vue'
 import VTreeView from './ui/TreeView.vue'
+import Translate from './ui/Translate.vue'
 
 function ShallowObj (Vue, obj) {
   const refs = {}
@@ -56,6 +57,7 @@ export default {
     Vue.component('v-text-field', VTextField)
     Vue.component('v-tooltip', VTooltip)
     Vue.component('v-tree-view', VTreeView)
+    Vue.component('translate', Translate) // not real translate, just to prevent errors in infopanel
 
     const store = ShallowObj(Vue, { activeEl: null, popups: {} })
     const focusListener = () => {

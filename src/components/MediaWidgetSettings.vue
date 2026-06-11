@@ -15,7 +15,7 @@
       lazy
       class="filled"
       label="Filename"
-      placeholder="<random>"
+      placeholder="<timestamp>"
       :value="config.filename"
       @input="$emit('update', 'filename', $event)"
     />

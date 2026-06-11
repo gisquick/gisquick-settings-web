@@ -92,13 +92,15 @@ export default {
         { text: 'Hyperlink', value: 'Hyperlink' },
         { text: 'Image', value: 'Image' },
         { text: 'Media File', value: 'MediaFile', configurable: true },
-        { text: 'ValueMap', value: 'ValueMap', icon: 'qgis', configurable: true }
+        { text: 'ValueMap', value: 'ValueMap', icon: 'qgis', configurable: true },
+        { text: 'Hidden', value: 'Hidden' }
       ]
     },
     widgets () {
       const { type } = this.attr
       // const pick = values => this.allWidgets.filter(i => values.includes(i.value))
-      const pick = values => values.map(v => this.allWidgets.find(i => i.value === v))
+
+      const pick = values => values.concat('Hidden').map(v => this.allWidgets.find(i => i.value === v))
 
       if (this.widget === 'ValueMap') {
         return pick(['ValueMap'])

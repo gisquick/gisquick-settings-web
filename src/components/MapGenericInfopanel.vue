@@ -2,11 +2,7 @@
   <div class="generic-infopanel">
     <div class="fields">
       <template v-for="(attr, index) in fields">
-        <span
-          class="label"
-          :key="attr.name"
-          v-text=" attr.alias || attr.name"
-        />
+        <span class="label" :key="attr.name">{{ attr.alias || attr.name }}</span>
         <slot :name="attr.name" :attr="attr">
           <component
             :is="widgets[index]"
@@ -18,11 +14,23 @@
       </template>
     </div>
     <template v-if="relations && showRelations">
-      <div v-for="(relation) in relations" :key="relation.name" class="relations">
-        <div class="header f-row-ac" @click="expanded[relation.name] = !expanded[relation.name]">
+      <div v-for="(relation, ri) in relations" :key="relation.name" class="relations f-col">
+        <div class="header dark f-row-ac" @click="expanded[relation.name] = !expanded[relation.name]">
           <span class="label" v-text="relation.name"/>
-          <span v-if="relationsData" class="mx-2">({{ relationsData[relation.name].length }})</span>
-          <div class="f-grow"/>
+          <span v-if="relationsData && relationsData[relation.name] && relationsData[relation.name].length > 1" class="mx-2">
+            ({{ relationsData[relation.name].length }})
+          </span>
+          <template v-if="relationsData && relationsData[relation.name] && relationsData[relation.name].length === 1">
+            <span v-if="relationLabels[relation.name]" class="mx-2">- {{ relationLabels[relation.name][0] }}</span>
+            <div class="f-grow"/>
+            <v-btn
+              class="icon m-0 p-1"
+              @click.stop="showRelation(relation, 0)"
+            >
+              <v-icon name="exit_to_app"/>
+            </v-btn>
+          </template>
+          <div v-else class="f-grow"/>
           <v-icon
             class="toggle mx-2"
             :class="{expanded: expanded[relation.name]}"
@@ -30,10 +38,25 @@
             size="12"
           />
         </div>
-          <div v-if="relationsData && expanded[relation.name]" class="f-col">
+        <template v-if="relationsData && expanded[relation.name]">
+          <template v-for="(f, fi) in relationsData[relation.name]">
+            <div
+              v-if="relationsData[relation.name].length > 1"
+              :key="`h_${ri}-${fi}`"
+              class="item-header f-row-ac ml-2"
+            >
+              <div class="badge">{{ fi + 1 }}</div>
+              <span v-if="relationLabels[relation.name]" class="mx-2">- {{ relationLabels[relation.name][fi] }}</span>
+              <div class="f-grow"/>
+              <v-btn
+                class="icon my-0"
+                @click="showRelation(relation, fi)"
+              >
+                <v-icon name="exit_to_app"/>
+              </v-btn>
+            </div>
             <component
-              v-for="(f, fi) in relationsData[relation.name]"
-              :key="`${relation.name}-${fi}`"
+              :key="`${ri}-${fi}`"
               :is="relation.component"
               :feature="f"
               :layer="relation.layer"
@@ -42,7 +65,8 @@
               :show-relations="false"
               class="nested"
             />
-          </div>
+          </template>
+        </template>
       </div>
     </template>
   </div>
@@ -58,8 +82,12 @@ import GeoJSON from 'ol/format/GeoJSON'
 
 import VImage from '@/components/image/Image.vue'
 import { valueMapItems } from '@/adapters/attributes'
-import { layerFeaturesQuery, formatFeatures } from '@/map/featureinfo'
+import { formatFeatures, layerFeaturesQuery } from '@/map/featureinfo'
+import { externalComponent } from '@/components-loader'
 
+function isAbsoluteUrl (val) {
+  return /(https?:\/\/.*\.)/i.test(val)
+}
 
 function Widget (render) {
   return {
@@ -76,6 +104,10 @@ const RawWidget = Widget((h, ctx) => (
   <span {...ctx.data}>{ctx.props.value}</span>
 ))
 
+export const HtmlWidget = Widget((h, ctx) => (
+  <span {...ctx.data} domPropsInnerHTML={ctx.props.value} class="html-widget"></span>
+))
+
 const FloatWidget = Widget((h, ctx) => (
   <span {...ctx.data}>{Number.isFinite(ctx.props.value) ? round(ctx.props.value, 2) : ctx.props.value}</span>
 ))
@@ -87,7 +119,7 @@ export const BoolWidget = Widget((h, ctx) => (
 // TODO: translate 'link' (check <translate> component in JSX)
 export const UrlWidget = Widget((h, ctx) => (
   ctx.props.value
-    ? <a {...ctx.data} href={ctx.props.value} target="_blank">link</a>
+    ? <translate {...ctx.data} class="hyperlink" tag="a" href={ctx.props.value} target="_blank">link</translate>
     : <span {...ctx.data}/>
 ))
 
@@ -135,7 +167,7 @@ export function createImageTableWidget (createUrl) {
           <v-btn class="icon flat m-0">
             <v-icon name="photo" onClick={props.openViewer}/>
             <v-tooltip slot="tooltip" align="ll,rr,c;tt,bb" content-class="tooltip dark image">
-              <img style="width:100%; max-width: 300px; max-height:300px" src={url}/>
+              <img style="width:100%; max-width: 300px; max-height:300px" src={`${url}?thumbnail=true`}/>
             </v-tooltip>
           </v-btn>
           <a class="value ml-2" href={url} target="_blank">{src}</a>
@@ -146,15 +178,25 @@ export function createImageTableWidget (createUrl) {
 }
 
 export const DateWidget = Widget((h, ctx) => {
-  let { value } = ctx.props
-  const cfg = ctx.data.attrs?.attribute?.config
-  if (value && cfg && cfg.display_format && cfg.field_format) {
-    const date = parse(value, cfg.field_format, new Date())
-    const displayFormat = cfg?.display_format || 'yyyy-MM-dd'
-    try {
-      value = format(date, displayFormat)
-    } catch (err) {
-      console.error(`DateWidget: failed to format value: ${value} (${err})`)
+  let { value, attribute } = ctx.props
+  const cfg = attribute?.config ?? { display_format: 'dd.MM.yyyy' }
+  if (value && cfg.display_format) {
+    let date
+    if (cfg.field_format) {
+      date = parse(value, cfg.field_format, new Date())
+    }
+    if (!date || Number.isNaN(date.getTime())) {
+      // try standard format (YYYY-MM-DD)
+      date = new Date(value)
+    }
+    if (!date || Number.isNaN(date.getTime())) {
+      console.error(`DateWidget: failed to parse value: ${value}`)
+    } else {
+      try {
+        value = format(date, cfg.display_format)
+      } catch (err) {
+        console.error(`DateWidget: failed to format value: ${value} (${err})`)
+      }
     }
   }
   return <span {...ctx.data}>{value}</span>
@@ -162,9 +204,9 @@ export const DateWidget = Widget((h, ctx) => {
 
 // or define as factory function with attribute as argument?
 export const DateTimeWidget = Widget((h, ctx) => {
-  let { value } = ctx.props
+  let { value, attribute } = ctx.props
   if (value) {
-    const cfg = ctx.data.attrs?.attribute?.config
+    const cfg = attribute?.config
     const displayFormat = cfg?.display_format || 'yyyy-MM-dd HH:mm:ss'
     const date = cfg?.field_format ? parse(value, cfg.field_format, new Date()) : new Date(value)
     try {
@@ -191,6 +233,23 @@ export const ValueMapWidget = {
   render () {
     return <span>{this.map[this.value]}</span>
   }
+}
+
+export function createMediaImageWidget (project, layer, attr) {
+  const { base } = mediaUrl(project, layer, attr)
+  return Widget((h, ctx) => {
+    const { value } = ctx.props
+    if (!value) {
+      return <span class="value"></span>
+    }
+    const url = path.join(base, value)
+    const thumbnailUrl = `${url}?thumbnail=true`
+    const srcset = window.devicePixelRatio > 1 ? `${thumbnailUrl} ${Math.min(2, window.devicePixelRatio)}x` : null
+    return [
+      <a class="value" href={url} target="_blank">{value}</a>,
+      <v-image class="image" src={url} srcset={srcset} thumbnail={thumbnailUrl}/>
+    ]
+  })
 }
 
 const RasterImageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.tif', '.tiff', '.webp']
@@ -251,6 +310,7 @@ export function createMediaFileTableWidget (createUrl) {
 }
 
 const GenericInfoPanel = {
+  name: 'GenericInfoPanel',
   components: { VImage },
   props: {
     feature: Object,
@@ -270,7 +330,7 @@ const GenericInfoPanel = {
   },
   computed: {
     fields () {
-      let { attributes, bands, info_panel_fields } = this.layer
+      let { attributes, info_panel_fields } = this.layer
       if (attributes) {
         const fields = this.properties || info_panel_fields
         if (fields) {
@@ -278,8 +338,8 @@ const GenericInfoPanel = {
           attributes = fields.map(name => attrsMap[name])
         }
         return attributes.filter(a => a.widget !== 'Hidden')
-      } else if (bands) {
-        return bands.map(name => ({ name, type: 'text' }))
+      } else if (this.layer.type === 'RasterLayer' && this.feature) {
+        return this.feature.getKeys().filter(n => n !== 'geometry').map(name => ({ name, type: 'text' }))
       }
       return []
     },
@@ -288,35 +348,53 @@ const GenericInfoPanel = {
     },
     widgets () {
       return this.fields.map(attr => {
-        const { type, widget } = attr
-        if (widget === 'ValueMap') {
+        const type = attr.type.split('(')[0]?.toLowerCase()
+        if (attr.widget === 'ValueMap') {
           return ValueMapWidget
-        } else if (widget === 'Hyperlink') {
+        } else if (attr.widget === 'Hyperlink') {
           return UrlWidget
-        } else if (widget === 'Image') {
+        } else if (attr.widget === 'Image') {
           return ImageWidget
-        } else if (widget === 'MediaFile') {
-          return createMediaFileWidget(this.project.name, this.layer, attr)
+        } else if (attr.widget === 'MediaFile') {
+          return createMediaFileWidget(this.project.config.name, this.layer, attr)
+        } else if (attr.widget === 'MediaImage') {
+          return createMediaImageWidget(this.project.config.name, this.layer, attr)
         }
-        if (type === 'float' && !attr.format) {
-          return FloatWidget
-        } else if (type === 'bool') {
+        if (type === 'bool') {
           return BoolWidget
         } else if (type === 'date') {
           return DateWidget
-        } else if (type === 'datetime') {
+        } else if (type === 'datetime' || type === 'timestamp') {
           return DateTimeWidget
+        }
+        // old API
+        if (type === 'double' || type === 'float') {
+          return FloatWidget
+        } else if (type === 'text') {
+          if (attr.content_type === 'url') {
+            return UrlWidget
+          } else if (attr.content_type?.startsWith('media;image/')) {
+            const value = this.feature?.get(attr.name)
+            if (isAbsoluteUrl(value)) {
+              return ImageWidget
+            }
+            return createMediaImageWidget(this.project.config.name, this.layer, attr)
+          }
+        }
+        if (attr.config?.UseHtml) {
+          return HtmlWidget
         }
         return RawWidget
       })
     },
     relations () {
       return this.layer.relations?.filter(r => r.infopanel_view !== 'hidden').map(r => {
-        let component = GenericInfoPanel
+        // const rLayer = this.project.overlays.byName[r.referencing_layer]
         const rLayer = r.referencing_layer
+        let component = GenericInfoPanel
         if (rLayer.infopanel_component) {
           try {
-            component = externalComponent(this.project, rLayer.infopanel_component)
+            component = externalComponent(this.project.config, rLayer.infopanel_component)
           } catch (err) {
             console.error(`Failed to load infopanel component: ${this.layer.infopanel_component}`)
           }
@@ -330,9 +408,18 @@ const GenericInfoPanel = {
           name: r.name,
           layer: rLayer,
           properties,
-          component
+          component,
+          config: r
         }
       })
+    },
+    relationLabels () {
+      const labels = {}
+      this.relations?.filter(r => r.config.label_fields && this.relationsData[r.name]).forEach(r => {
+        const features = this.relationsData[r.name]
+        labels[r.name] = features.map(f => r.config.label_fields.map(field => f.get(field)).join(r.config.label_separator || ' '))
+      })
+      return labels
     }
   },
   watch: {
@@ -357,6 +444,13 @@ const GenericInfoPanel = {
     }
   },
   methods: {
+    readFeatures (data, layer) {
+      const mapProjection = this.$map?.getView().getProjection().getCode()
+      const parser = new GeoJSON()
+      const features = parser.readFeatures(data, { featureProjection: mapProjection })
+      // return formatFeatures(this.project, layer, features)
+      return formatFeatures(features, this.project.formatters)
+    },
     async fetchRelationsData (layer, feature) {
       if (!feature._relationsData) {
         feature._relationsData = {}
@@ -368,8 +462,9 @@ const GenericInfoPanel = {
           operator: '=',
           value: feature.get(rel.referenced_fields[i])
         }))
-        const query = layerFeaturesQuery(rel.referencing_layer, { filters })
-
+        // const referencingLayer = this.project.overlays.byName[rel.referencing_layer]
+        const referencingLayer = rel.referencing_layer
+        const query = layerFeaturesQuery(referencingLayer, { filters })
         const params = {
           'VERSION': '1.1.0',
           'SERVICE': 'WFS',
@@ -378,9 +473,7 @@ const GenericInfoPanel = {
         }
         const headers = { 'Content-Type': 'text/xml' }
         const { data } = await this.$http.post(this.project.config.ows_url, query, { params, headers })
-        const parser = new GeoJSON()
-        const features = parser.readFeatures(data)
-        formatFeatures(features, this.project.formatters)
+        const features = this.readFeatures(data, referencingLayer)
         // return ShallowArray(features)
         return Object.freeze(features)
       })
@@ -389,6 +482,10 @@ const GenericInfoPanel = {
         feature._relationsData[r.name] = results[i]
       })
       return feature._relationsData
+    },
+    showRelation (relation, index) {
+      const data = this.relationsData[relation.name]
+      this.$emit('relation', relation, data[index])
     }
   }
 }
@@ -398,6 +495,9 @@ export default GenericInfoPanel
 <style lang="scss" scoped>
 .generic-infopanel {
   padding: 6px;
+  &.nested {
+    padding: 3px 0;
+  }
 }
 .fields {
   // display: grid;
@@ -508,6 +608,8 @@ export default GenericInfoPanel
       background-color: #f5f5f5;
       border-radius: 3px;
     }
+
+    // justify-content: end;
     justify-content: center;
     ::v-deep .image-error {
       height: 64px;
@@ -521,12 +623,46 @@ export default GenericInfoPanel
   .header {
     cursor: pointer;
     padding: 2px 6px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1;
+    position: sticky;
+    top: 1px;
+    border-radius: 3px;
+    background-color: #fff;
+    background-color: #707070;
+    color: #fff;
+    margin-bottom: 2px;
+    --gutter: 2px 6px;
     .toggle {
       transition: .3s cubic-bezier(.25,.8,.5,1);
       &.expanded {
         transform: rotate(180deg);
       }
     }
+  }
+}
+.link {
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.badge {
+  border-radius: 5px;
+  width: 18px;
+  height: 18px;
+  background-color: #707070;
+  // background-color: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+</style>
+
+<style lang="scss">
+.tooltip.image {
+  .tooltip-box {
+    padding: 2px;
   }
 }
 </style>

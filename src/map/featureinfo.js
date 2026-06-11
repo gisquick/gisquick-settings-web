@@ -20,20 +20,27 @@ function SimpleFilter (name) {
 }
 
 function LikeFilter (attribute, value) {
+  const literal = value.includes('%') ? value : `%${value}%`
   return `
     <ogc:PropertyIsLike wildCard="%" singleChar="_" escapeChar="\\" matchCase="false">
       <ogc:PropertyName>${attribute}</ogc:PropertyName>
-      <ogc:Literal>%${value}%</ogc:Literal>
+      <ogc:Literal>${literal}</ogc:Literal>
     </ogc:PropertyIsLike>`
 }
 
 function InFilter (attribute, value) {
-  const items = value.split(',').map(v => SimpleFilter('PropertyIsEqualTo')(attribute, v))
+  const values = Array.isArray(value) ? value : value.split(',').map(v => v.trim())
+  const items = values.map(v => SimpleFilter('PropertyIsEqualTo')(attribute, v))
   return items.length > 1 ? OrOperator(items) : items[0]
 }
 
-function BetweenFilter (attribute, value) {
-  const [ lower, upper ] = value.split(',')
+function NotInFilter (attribute, value) {
+  const values = Array.isArray(value) ? value : value.split(',').map(v => v.trim())
+  const items = values.map(v => SimpleFilter('PropertyIsNotEqualTo')(attribute, v))
+  return items.length > 1 ? AndOperator(items) : items[0]
+}
+
+function BetweenFilter (attribute, lower, upper) {
   return `
     <ogc:PropertyIsBetween>
       <ogc:PropertyName>${attribute}</ogc:PropertyName>
@@ -59,20 +66,30 @@ function IsNotNullFilter (attribute) {
 }
 
 const AttributeFilters = {
+  'DATE_EQUAL': (attribute, value) => BetweenFilter(attribute, value, value),
+  'DATE_BETWEEN': (attribute, value) => BetweenFilter(attribute, value?.since, value?.until),
+  // 'SINCE': (attribute, value) => BetweenFilter(attribute, value, 'null'),
+  'SINCE': (attribute, value) => BetweenFilter(attribute, value, '9999-12-31'),
+  'UNTIL': (attribute, value) => BetweenFilter(attribute, '0', value,),
   '=': SimpleFilter('PropertyIsEqualTo'),
   '!=': SimpleFilter('PropertyIsNotEqualTo'),
   '>': SimpleFilter('PropertyIsGreaterThan'),
+  // '>': DateFilter('PropertyIsGreaterThan'),
   '>=': SimpleFilter('PropertyIsGreaterThanOrEqualTo'),
   '<': SimpleFilter('PropertyIsLessThan'),
+  // '<': DateFilter('PropertyIsGreaterThan'),
   '<=': SimpleFilter('PropertyIsLessThanOrEqualTo'),
   'LIKE': LikeFilter,
   'IN': InFilter,
-  'BETWEEN': BetweenFilter,
+  'NOT IN': NotInFilter,
+  'BETWEEN': (attr, value) => BetweenFilter(attr, ...value.split(',')),
   'IS NULL': IsNullFilter,
   'IS NOT NULL': IsNotNullFilter
 }
 
-function _layerFeaturesQuery (layer, geom, filters, propertyNames = []) {
+export function formatLayerQuery (layer, params) {
+  const { geom, filters, propertyNames = [], sortBy } = params
+
   const ogcFilters = []
   if (geom) {
     const gmlGeom = new GML3({
@@ -95,12 +112,17 @@ function _layerFeaturesQuery (layer, geom, filters, propertyNames = []) {
     rootFilter = ogcFilters.length > 1 ? AndOperator(ogcFilters) : ogcFilters[0]
     rootFilter = `<ogc:Filter xmlns:ogc="http://www.opengis.net/ogc">${rootFilter}</ogc:Filter>`
   }
+  let sort = ''
+  if (sortBy) {
+    sort = `<ogc:SortBy><ogc:SortProperty><ogc:PropertyName>${sortBy.property}</ogc:PropertyName><ogc:SortOrder>${sortBy.order}</ogc:SortOrder></ogc:SortProperty></ogc:SortBy>`
+  }
   return [
-    `<gml:Query gml:typeName="${layer.name.replace(/ /g, '_')}">`,
+    `<wfs:Query typeName="${layer.name.replace(/ /g, '_')}" xmlns:feature="http://www.qgis.org/gml">`,
     propertyNames.map(n => `<ogc:PropertyName>${n}</ogc:PropertyName>`).join('\n'),
     rootFilter,
-    '</gml:Query>'
-  ].join('\n')
+    sort,
+    '</wfs:Query>'
+  ].filter(v => v).join('\n')
 }
 
 export function getFeatureQuery (...queries) {
@@ -122,26 +144,35 @@ export function getFeatureQuery (...queries) {
   ].join('\n')
 }
 
-export function layerFeaturesQuery (layer, geom, filters, propertyNames = []) {
-  return getFeatureQuery(_layerFeaturesQuery(layer, geom, filters, propertyNames))
+export function layerFeaturesQuery (layer, opts) {
+  return getFeatureQuery(formatLayerQuery(layer, opts))
 }
 
-export function layersFeaturesQuery (layers, geomFilter) {
-  const { geom, projection } = geomFilter
-  const geomsByProj = {
-    [projection]: geom
-  }
-  if (geomFilter) {
-    layers
-      .filter(l => l.projection !== projection)
+export function layersFeaturesQuery (layers, opts) {
+  const geomsByProj = {}
+  if (opts.geomFilter) {
+    const { geom, projection } = opts.geomFilter
+    if (projection) {
+      geomsByProj[projection] = geom
+      layers
+      .filter(l => l.projection && l.projection !== projection)
       .forEach(l => {
         if (!geomsByProj[l.projection]) {
           geomsByProj[l.projection] = geom.clone().transform(projection, l.projection)
         }
       })
+    }
   }
-  return getFeatureQuery(...layers.map(l => _layerFeaturesQuery(l, geomsByProj[l.projection])))
+  const hasSharedFilters = Array.isArray(opts.filters)
+  const hasSharedProperties = Array.isArray(opts.propertyNames)
+  const queries = layers.map(l => formatLayerQuery(l, {
+    geom: geomsByProj[l.projection],
+    filters: hasSharedFilters ? opts.filters : opts.filters?.[l.name],
+    propertyNames: hasSharedProperties ? opts.propertyNames : opts.propertyNames?.[l.name]
+  }))
+  return getFeatureQuery(...queries)
 }
+
 
 export function getFeatureByIdQuery (layer, feature) {
   const id = feature.getId().split('.', 2)[1]
@@ -164,5 +195,11 @@ export function formatFeatures (features, formatters) {
         return this._formattedProperties[key] ?? this.get(key)
       }
     })
+    Object.defineProperty(f, 'getFormattedProperties', {
+      value: function () {
+        return this._formattedProperties
+      }
+    })
   })
+  return features
 }

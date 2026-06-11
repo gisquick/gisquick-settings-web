@@ -25,7 +25,8 @@ export function layerCapabilities1 (meta, settings) {
 
 export function layerCapabilities (meta, settings) {
   const layerFlags = intersection(meta.flags, settings.flags)
-  const layerVisible = !settings.flags.includes('excluded') && !settings.flags.includes('hidden')
+  // const layerVisible = !settings.flags.includes('excluded') && !settings.flags.includes('hidden')
+  const layerVisible = !settings.flags.includes('excluded') // do not exclude hidden layers for possible use in relations
   const isVectorLayer = meta.type === 'VectorLayer'
   // const queryable = layerVisible && layerFlags.includes('query')
   const queryable = layerFlags.includes('query')
