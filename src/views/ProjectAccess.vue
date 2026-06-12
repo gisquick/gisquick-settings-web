@@ -117,6 +117,12 @@
             lazy
             v-model="selectedRole.name"
           />
+          <v-text-field
+            class="filled"
+            label="Note"
+            lazy
+            v-model="selectedRole.note"
+          />
           <!-- <v-select
             class="filled"
             label="Access"
@@ -526,6 +532,7 @@ export default {
     createRole (params) {
       return {
         name: 'New',
+        note: '',
         type: 'users',
         ...params,
         users: [],
