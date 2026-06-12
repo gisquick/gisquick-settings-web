@@ -63,6 +63,12 @@
       icon="warning"
       text="Are you sure to delete this project?"
     />
+    <confirm-dialog
+      ref="confirmResetSettingsDialog"
+      :action="resetSettings"
+      icon="warning"
+      text="Project settings will be reseted. Please remember to save the changes to apply them. Do you want to continue?"
+    />
     <v-dialog ref="projectionDialog" title="Projection">
       <projections-settings
         v-if="project"
@@ -305,7 +311,7 @@ export default {
       return [
         { text: 'Download Project', icon: 'download', link: `/api/project/download/${this.project.name}` },
         { text: 'WMS Service', icon: 'copy', action: this.copyWmsServiceUrl },
-        { text: 'Reset Settings', icon: 'reload', action: this.resetSettings },
+        { text: 'Reset Settings', icon: 'reload', action: () => this.$refs.confirmResetSettingsDialog.show() },
         { text: 'Import Settings', icon: 'swap', action: () => this.$refs.importDialog.show() },
         { text: 'Delete Project', icon: 'delete_forever', action: () => this.$refs.confirmDeleteDialog.show() },
         { text: 'Debug', separator: true },
