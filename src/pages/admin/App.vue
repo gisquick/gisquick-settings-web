@@ -22,7 +22,10 @@
           <v-icon name="grafana"/>
           <span>Grafana</span>
         </a>
-
+        <router-link class="item" :to="{name: 'aliases'}">
+          <v-icon name="globe"/>
+          <span>Aliases</span>
+        </router-link>
         <router-link
           v-if="app.qgis_server_man"
           class="item"

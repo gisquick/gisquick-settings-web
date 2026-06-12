@@ -6,6 +6,7 @@ import UsersView from '@/views/admin/UsersView.vue'
 import EmailsView from '@/views/admin/EmailsView.vue'
 import NotificationsView from '@/views/admin/NotificationsView.vue'
 import QgisServerManager from '@/views/admin/QgisServerManager.vue'
+import AliasesView from '@/views/admin/AliasesView.vue'
 
 Vue.use(VueRouter)
 
@@ -35,6 +36,11 @@ const routes = [
     path: '/notifications',
     name: 'notifications',
     component: NotificationsView
+  },
+  {
+    path: '/aliases',
+    name: 'aliases',
+    component: AliasesView
   },
   {
     path: '/qgis-servers',
