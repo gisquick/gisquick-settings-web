@@ -44,6 +44,7 @@
         v-for="field in extraFields"
         :key="field.name"
         :is="field.component || 'v-text-field'"
+        v-bind="field.params"
         :label="field.label"
         class="filled"
         v-model="extra[field.name]"
@@ -143,7 +144,7 @@ export default {
       }
     },
     async createUser () {
-      const form = { ...this.form, extra: this.extra }
+      const form = { ...this.form, profile: this.extra }
       const t = this.$http.post('/api/admin/user', form)
       await watchTask(t, this.task)
       if (!t.error) {

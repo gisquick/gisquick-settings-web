@@ -11,7 +11,7 @@
       <div class="form f-col my-2">
         <v-text-field
           class="filled"
-          label="Email"
+          label="Username"
           readonly
           v-model="user.username"
         />
@@ -32,6 +32,19 @@
         />
         <v-checkbox label="Active" v-model="user.active"/>
         <v-checkbox label="Superuser" v-model="user.superuser"/>
+        <template v-if="userProfileFields">
+          <hr class="mx-2 my-4"/>
+          <component
+            v-for="field in userProfileFields"
+            :key="field.name"
+            :is="field.component || 'v-text-field'"
+            v-bind="field.params"
+            :label="field.label"
+            class="filled"
+            :value="profile && profile[field.name]"
+            @input="updateProfileValue(field.name, $event)"
+          />
+        </template>
       </div>
       <div class="info my-4 p-2">
         <span class="label">Created</span>
@@ -44,7 +57,12 @@
         <v-btn class="outlined round" color="primary" disabled>
           <span>Reset Password</span>
         </v-btn>
-        <v-btn class="round" color="dark" :disabled="user.active || !user.email">
+        <v-btn
+          class="round"
+          color="dark"
+          :disabled="user.active || !user.email"
+          @click="sendActivationEmail"
+        >
           <v-icon name="mail" class="mr-2"/>
           <span>Send Activation Email</span>
         </v-btn>
@@ -72,7 +90,14 @@
           </template>
         </v-menu> -->
         <v-btn class="outlined round" xcolor="#777" :to="{ name: 'users' }">Back</v-btn>
-        <v-btn class="round" color="green" @click="updateUser">Save</v-btn>
+        <v-btn
+          :disabled="!userDataChanged && !profileDataChanged"
+          class="round"
+          color="green"
+          @click="updateUser"
+        >
+          Save
+        </v-btn>
       </div>
     </div>
   </div>
@@ -80,16 +105,24 @@
 
 <script>
 import omit from 'lodash/omit'
+import cloneDeep from 'lodash/cloneDeep'
+import isEqual from 'lodash/isEqual'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import TextList from '@/ui/TextList.vue'
 
 export default {
-  components: { ConfirmDialog },
+  components: { ConfirmDialog, TextList },
   props: {
     username: String
   },
   data () {
     return {
-      user: null
+      user: null,
+      profile: null,
+      original: {
+        user: null,
+        profile: null
+      }
     }
   },
   computed: {
@@ -102,22 +135,68 @@ export default {
         icon: 'mail',
         disabled: this.user.active || !this.user.email
       }]
+    },
+    userProfileFields () {
+      return this.$root.app.account?.profile_fields
+    },
+    userDataChanged () {
+      return !isEqual(this.user, this.original.user)
+    },
+    profileDataChanged () {
+      return !isEqual(this.profile, this.original.profile)
     }
   },
   mounted () {
     this.fetchUserData()
   },
   methods: {
+    setUserData (data) {
+      const { profile, ...user } = data
+      this.original = {
+        profile: cloneDeep(profile),
+        user: cloneDeep(user)
+      }
+      this.user = user
+      this.profile = profile
+    },
+    updateProfileValue (key, value) {
+      if (!this.profile) {
+        this.profile = { [key]: value }
+      }
+      this.$set(this.profile, key, value)
+    },
     async fetchUserData () {
       const { data } = await this.$http.get(`/api/admin/users/${this.username}`)
-      this.user = data
+      this.setUserData(data)
     },
-    updateUser () {
-      this.$http.put(`/api/admin/users/${this.username}`, omit(this.user, ['date_joined', 'last_login']))
+    async updateUser () {
+      try {
+        let data
+        if (this.userDataChanged) {
+          const userData = omit(this.user, ['date_joined', 'last_login'])
+          ;({ data } = await this.$http.put(`/api/admin/users/${this.username}`, userData))
+        }
+        if (this.profileDataChanged) {
+          ({ data } = await this.$http.put(`/api/admin/users/profile/${this.username}`, this.profile))
+        }
+        this.setUserData(data)
+        this.$notify.success('User data was updated')
+      } catch (err) {
+        this.$notify.error('Failed to update user data')
+      }
     },
     async deleteUser () {
       await this.$http.delete(`/api/admin/users/${this.username}`)
       this.$router.push({ name: 'users' })
+    },
+    async sendActivationEmail () {
+      try {
+        await this.$http.post('/api/admin/send_activation_email', { email: this.user.email })
+        this.$notify.success('Activation email was sent')
+      } catch (err) {
+        console.error(err)
+        this.$notify.error('Failed to send activation email')
+      }
     }
   }
 }
