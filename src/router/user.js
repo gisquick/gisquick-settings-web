@@ -17,6 +17,7 @@ import ProjectTopics from '@/views/ProjectTopics.vue'
 import ProjectAccess from '@/views/ProjectAccess.vue'
 import ProjectUpdate from '@/views/ProjectUpdate.vue'
 import SearchView from '@/views/SearchView.vue'
+import ProcessingView from '@/views/ProcessingView.vue'
 
 Vue.use(VueRouter)
 
@@ -86,6 +87,11 @@ const routes = [
         path: 'search',
         name: 'search',
         component: SearchView
+      },
+      {
+        path: 'processing',
+        name: 'processing',
+        component: ProcessingView
       },
       {
         path: 'access',
