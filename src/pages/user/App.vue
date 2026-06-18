@@ -171,8 +171,14 @@ html {
 }
 html, body, .app {
   height: 100%;
-  overflow: hidden;
 }
+
+@media (min-width: 1200px) {
+  html, body, .app {
+    overflow: hidden;
+  }
+}
+
 #app {
   min-height: 100;
 }
