@@ -89,6 +89,26 @@ import { validateSettings } from '@/utils/project'
 import { filterLayers, transformLayersTree } from '@/utils/layers'
 // import { TaskState, watchTask } from '@/tasks'
 
+function mergeRole (original, template, layersIds) {
+  const role = cloneDeep(original)
+  role.type = template.type
+  // if (role.type === 'users') {
+  //   role.users = template.users
+  // }
+  // handle layers, attributes, topics
+  layersIds.forEach(lid => {
+    role.permissions.layers[lid] = template.permissions.layers[lid]
+    const attrsPerms = template.permissions.attributes[lid]
+    if (attrsPerms) {
+      role.permissions.attributes[lid] = attrsPerms
+    }
+    if (template.permissions.topics) {
+      role.permissions.topics = template.permissions.topics
+    }
+  })
+  return role
+}
+
 export default {
   components: { VAutocomplete, LayersTable },
   props: {
@@ -157,7 +177,6 @@ export default {
     },
     layersTree () {
       const byId = keyBy(this.layersMap, 'destId')
-      console.log(byId)
       let tree = this.meta.layers_tree
       tree = filterLayers(tree, l => byId[l.id])
       return transformLayersTree(
@@ -208,8 +227,18 @@ export default {
           const role = this.sourceSettings.auth.roles.find(r => r.name === name)
           const index = roles.findIndex(r => r.name === name)
           if (index !== -1) {
-            roles[index] = role
+
+            const ids = this.selectedLayers.length
+              ? this.selectedLayers.map(name => this.layersMap[name].destId)
+              : Object.values(this.layersMap).map(i => i.destId)
+
+            // const ids = Object.keys(this.meta.layers)
+            const mergedRole = mergeRole(roles[index], role, ids)
+            roles[index] = mergedRole
           } else {
+            if (role.type === 'users') {
+              role.users = []
+            }
             roles.push(role)
           }
         })
