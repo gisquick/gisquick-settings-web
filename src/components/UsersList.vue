@@ -10,18 +10,23 @@
       <v-autocomplete
         placeholder="Find user"
         class="filled"
-        :min-chars="2"
+        :min-chars="usersList.length > 25 ? 1 : 0"
         :items="filteredUsers"
-        highlight-fields="username,first_name,last_name"
+        highlight-fields="username,first_name,last_name,email"
         @input="onInput"
         @text:update="onTextChange"
       >
         <template v-slot:item="{ item, html }">
           <div class="item f-row f-grow">
-            <div class="f-grow">
-              <div class="title" v-html="html.username"/>
-              <small v-if="item.first_name" class="name first" v-html="html.first_name"/>
-              <small v-html="html.last_name"/>
+            <div class="f-col f-grow">
+              <div class="f-row">
+                <div class="title f-grow" v-html="html.username"/>
+                <small v-html="html.email"/>
+              </div>
+              <div class="f-row">
+                <small v-if="item.first_name" class="name first" v-html="html.first_name"/>
+                <small v-html="html.last_name"/>
+              </div>
             </div>
           </div>
         </template>
@@ -89,6 +94,7 @@
             <span class="f-grow mr-2">
               {{ item.username }} <span v-if="item.full_name"> ({{ item.full_name }})</span>
             </span>
+            <small class="mx-2">{{ item.email }}</small>
           </slot>
           <v-btn
             v-show="selected === item.username"
@@ -143,13 +149,12 @@ export default {
       return this.task.success && this.value ? this.value.map(k => this.usersMap[k] ?? { username: k, invalid: true }) : []
     },
     filteredUsers () {
+      let users = this.usersList.filter(u => !this.value || this.value.indexOf(u.username) === -1)
       if (this.usersList.length && this.text?.length > 1) {
         const regex = new RegExp(escapeRegExp(sanitize(removeDiacritics(this.text))), 'i')
-        return this.usersList
-          .filter(u => !this.value || this.value.indexOf(u.username) === -1)
-          .filter(u => regex.test(removeDiacritics(u.username)))
+        return users.filter(u => regex.test(removeDiacritics(u.username)) || (u.email && regex.test(u.email)))
       }
-      return []
+      return users
     },
     hasDeletedUsers () {
       return this.task.success && this.value?.some(username => !this.usersMap[username])

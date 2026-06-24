@@ -146,11 +146,19 @@
               class="filled"
               placeholder="Users"
               item-value="username"
-              item-text="full_name"
+              item-text="username"
               :items="projectUsers"
               v-model="selectedRole.users"
               multiple
-            />
+            >
+              <template v-slot:item="{ item }">
+                <span class="f-row f-grow test">
+                  <span v-text="item.username"/>
+                  <span v-if="item.full_name" class="mx-2">({{ item.full_name }})</span>
+                  <small class="ml-auto" v-text="item.email"/>
+                </span>
+              </template>
+            </v-select>
             <users-list
               v-else
               :task="tasks.users"
@@ -555,7 +563,8 @@ export default {
       const setFullName = u => {
         u.full_name = fullName(u)
       }
-      const task = this.$http.get('/api/users').then(resp => {
+      const url = this.$root.user.is_superuser ? '/api/admin/users' : '/api/users'
+      const task = this.$http.get(url).then(resp => {
         resp.data.forEach(setFullName)
         return resp
       })
